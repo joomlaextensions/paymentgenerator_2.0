@@ -114,7 +114,7 @@ class PlgFabrik_FormPaymentgenerator extends PlgFabrik_Form {
 
                     // Add the corresponding time interval to the category's financial control table
                     foreach ($categorys as $category) {
-                        if ($category == $categoryMarca || $category == 'M-PEDIDO') {                        
+                        if ($category == $categoryMarca || strrpos($category, 'PEDIDO') !== false) {                        
                             continue;
                         } elseif ($category == 'M-1º PRORROGACAO') {
                             $dtInicio = date('Y-m-d', strtotime('+9 years', strtotime($formDtInicio)));
