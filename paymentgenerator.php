@@ -81,9 +81,9 @@ class PlgFabrik_FormPaymentgenerator extends PlgFabrik_Form {
                     foreach ($categorys as $category) {        
                         if ($category == $categoryPatente) {                        
                             continue;
-                        } elseif ($category == 'PI-EXAME TECNICO') {                        
+                        } elseif (strrpos($category, 'EXAME') && strrpos($category, 'TECNICO')) {                        
                             $dtInicio = date('Y-m-d', strtotime('+30 months', strtotime($formDtInicio)));
-                        } elseif ($category == 'PI-3º ANUIDADE') {
+                        } elseif (strrpos($category, '3') && strrpos($category, 'ANUIDADE')) {
                             $dtInicio = date('Y-m-d', strtotime('+24 months', strtotime($formDtInicio)));
                         } else {                                
                             $dtInicio = date('Y-m-d', strtotime('+12 months', strtotime($dtInicio)));
@@ -114,9 +114,9 @@ class PlgFabrik_FormPaymentgenerator extends PlgFabrik_Form {
 
                     // Add the corresponding time interval to the category's financial control table
                     foreach ($categorys as $category) {
-                        if ($category == $categoryMarca || strrpos($category, 'PEDIDO') !== false) {                        
+                        if ($category == $categoryMarca || strrpos($category, 'PEDIDO')) {                        
                             continue;
-                        } elseif ($category == 'M-1º PRORROGACAO') {
+                        } elseif (strrpos($category, '1') && strrpos($category, 'PRORROGACAO')) {
                             $dtInicio = date('Y-m-d', strtotime('+9 years', strtotime($formDtInicio)));
                         } else {                                
                             $dtInicio = date('Y-m-d', strtotime('+10 years', strtotime($dtInicio)));
@@ -142,16 +142,18 @@ class PlgFabrik_FormPaymentgenerator extends PlgFabrik_Form {
 
                     // Add the corresponding time interval to the category's financial control table
                     foreach ($categorys as $category) {
-                        if ($category == 'DI-CONCESSAO' || $category == $categoryIndustrial) {                        
+                        if (strrpos($category, 'CONCESSAO') || $category == $categoryIndustrial) {                        
                             continue;
-                        } elseif ($category == 'DI-2º PER.QUINQUENIO') {
+                        } elseif (strrpos($category, '2') && strrpos($category, 'QUINQUENIO')) {
                             $dtInicio = date('Y-m-d', strtotime('+4 years', strtotime($formDtInicio)));
+                        } elseif (strrpos($category, 'DATA') && strrpos($category, 'VIGENCIA')) {
+                            $dtInicio = date('Y-m-d', strtotime('+25 years', strtotime($formDtInicio)));
                         } else {
                             $dtInicio = date('Y-m-d', strtotime('+5 years', strtotime($dtInicio)));
                         }
                         
-                        $dtFimO   = $category == 'DI-DATA DA VIGENCIA' ? null : date('Y-m-d', strtotime('+12 months', strtotime($dtInicio)));
-                        $dtFimE   = $category == 'DI-DATA DA VIGENCIA' ? null : date('Y-m-d', strtotime('+18 months', strtotime($dtInicio)));
+                        $dtFimO   = (strrpos($category, 'DATA') && strrpos($category, 'VIGENCIA')) ? null : date('Y-m-d', strtotime('+12 months', strtotime($dtInicio)));
+                        $dtFimE   = (strrpos($category, 'DATA') && strrpos($category, 'VIGENCIA')) ? null : date('Y-m-d', strtotime('+18 months', strtotime($dtInicio)));
                         $dtAlerta = $dtInicio;
 
                         $data = array($id, $category, $dtInicio, $dtFimO, $dtFimE, $valueIndustrial, $situation, $dtAlerta);
