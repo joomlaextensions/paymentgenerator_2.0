@@ -114,7 +114,7 @@ class PlgFabrik_FormPaymentgenerator extends PlgFabrik_Form {
 
                     // Add the corresponding time interval to the category's financial control table
                     foreach ($categorys as $category) {
-                        if ($category == $categoryMarca || $category == 'M-CONCESSAO') {                        
+                        if ($category == $categoryMarca || $category == 'M-PEDIDO') {                        
                             continue;
                         } elseif ($category == 'M-1º PRORROGACAO') {
                             $dtInicio = date('Y-m-d', strtotime('+9 years', strtotime($formDtInicio)));
@@ -136,13 +136,13 @@ class PlgFabrik_FormPaymentgenerator extends PlgFabrik_Form {
                     }, ARRAY_FILTER_USE_BOTH);
 
                     // Search for the entered date corresponding to the base payment field of the calculation
-                    $key          = array_search($categoryMarca, array_column($formCategoria, '0'));
+                    $key          = array_search($categoryIndustrial, array_column($formCategoria, '0'));
                     $formDtInicio = $formModel->formData[$elementInicio][$key];
                     $formDtInicio = explode(' ', $formDtInicio)[0];
 
                     // Add the corresponding time interval to the category's financial control table
                     foreach ($categorys as $category) {
-                        if ($category == 'DI-PEDIDO' || $category == $categoryIndustrial) {                        
+                        if ($category == 'DI-CONCESSAO' || $category == $categoryIndustrial) {                        
                             continue;
                         } elseif ($category == 'DI-2º PER.QUINQUENIO') {
                             $dtInicio = date('Y-m-d', strtotime('+4 years', strtotime($formDtInicio)));
