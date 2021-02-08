@@ -70,46 +70,9 @@ class PlgFabrik_FormPaymentgenerator extends PlgFabrik_Form {
             $objParams = json_decode($elementModel->params);
             $subValues = $objParams->sub_options->sub_values;
 
-            if ((int) $quant->total === 1) {
-                // If you have only one payment field filled in and it is the category corresponding to the 'PATENTE DE INVENÇÃO'
-                if ($categoryPatente === $formCategoria[0][0]) {
-                    $categorys = $this->searchCategorys($subValues, 'PI-');
-                    
-                    $formDtInicio  = $formModel->formData[$elementInicio][0];
-                    $formDtInicio = explode(' ', $formDtInicio)[0];
-        
-                    foreach ($categorys as $category) {        
-                        if ($category == $categoryPatente) continue; 
-                        
-                        if (strrpos($category, 'EXAME') && strrpos($category, 'TECNICO')) {                        
-                            $period        = '+30 months';
-                            $dtCalculation = $formDtInicio;
-                        } elseif (strrpos($category, '3') && strrpos($category, 'ANUIDADE')) {
-                            $period        = '+24 months';
-                            $dtCalculation = $formDtInicio;
-                        } else {                                
-                            $period        = '+12 months';
-                            $dtCalculation = $dtInicio;
-                        }
-                        
-                        $dtInicio = $this->calculationDate($period, $dtCalculation);
-                        $dtFimO   = $this->calculationDate('+90 days', $dtInicio);
-                        $dtFimE   = $this->calculationDate('+180 days', $dtInicio);
-                        $dtAlerta = $dtInicio;
-        
-                        $data = array($id, $category, $dtInicio, $dtFimO, $dtFimE, $valuePatente, $situation, $dtAlerta);
-
-                        $this->insertData($table, $columns, $data);
-                    }
-                } else {
-                    JFactory::getApplication()->enqueueMessage(JText::_('PLG_FORM_PAYMENTGENERATOR_MESSAGE_2'));
-                }
-            } elseif ((int) $quant->total === 2) {
-                $periodFimO = '+12 months';
-                $periodFimE = '+18 months';
-
-                // If you have two payment fields filled out and the corresponding category is 'MARCA' or 'DESENHO INDUSTRIAL' 
-                if ($categoryMarca === $formCategoria[0][0] XOR $categoryMarca === $formCategoria[1][0]) {
+            if ((int) $quant->total > 0 && (int) $quant->total <= 2) {
+                if (($categoryMarca === $formCategoria[0][0] XOR (isset($formCategoria[1]) && $categoryMarca === $formCategoria[1][0])) && 
+                    (stristr($formCategoria[0][0], 'PEDIDO') XOR (isset($formCategoria[1]) && stristr($formCategoria[1][0], 'PEDIDO')))) {
                     $categorys = $this->searchCategorys($subValues, 'M-');
 
                     // Search for the entered date corresponding to the base payment field of the calculation
@@ -119,9 +82,9 @@ class PlgFabrik_FormPaymentgenerator extends PlgFabrik_Form {
 
                     // Add the corresponding time interval to the category's financial control table
                     foreach ($categorys as $category) {
-                        if ($category == $categoryMarca || strrpos($category, 'PEDIDO')) continue; 
+                        if ($category == $categoryMarca || stristr($category, 'PEDIDO')) continue; 
                         
-                        if (strrpos($category, '1') && strrpos($category, 'PRORROGACAO')) {
+                        if (stristr($category, '1') && stristr($category, 'PRORROGACAO')) {
                             $period        = '+9 years';
                             $dtCalculation = $formDtInicio;
                         } else {                                
@@ -130,15 +93,15 @@ class PlgFabrik_FormPaymentgenerator extends PlgFabrik_Form {
                         }
                         
                         $dtInicio = $this->calculationDate($period, $dtCalculation);
-                        $dtFimO   = $this->calculationDate($periodFimO, $dtInicio);
-                        $dtFimE   = $this->calculationDate($periodFimE, $dtInicio);
+                        $dtFimO   = $this->calculationDate('+12 months', $dtInicio);
+                        $dtFimE   = $this->calculationDate('+18 months', $dtInicio);
                         $dtAlerta = $dtInicio;
 
                         $data = array($id, $category, $dtInicio, $dtFimO, $dtFimE, $valueMarca, $situation, $dtAlerta);
                         
                         $this->insertData($table, $columns, $data);
                     }
-                } elseif ($categoryIndustrial === $formCategoria[0][0] XOR $categoryIndustrial === $formCategoria[1][0]) {
+                } elseif ($categoryIndustrial === $formCategoria[0][0] XOR (isset($formCategoria[1]) && $categoryIndustrial === $formCategoria[1][0])) {
                     $categorys = $this->searchCategorys($subValues, 'DI-');
 
                     // Search for the entered date corresponding to the base payment field of the calculation
@@ -148,12 +111,11 @@ class PlgFabrik_FormPaymentgenerator extends PlgFabrik_Form {
 
                     // Add the corresponding time interval to the category's financial control table
                     foreach ($categorys as $category) {
-                        if ($category == $categoryIndustrial || strrpos($category, 'CONCESSAO')) continue; 
+                        if ($category == $categoryIndustrial || stristr($category, 'CONCESSAO')) continue; 
                         
-                        $dtVigencia = (strrpos($category, 'DATA') && strrpos($category, 'VIGENCIA'));
+                        $dtVigencia = (stristr($category, 'DATA') && stristr($category, 'VIGENCIA'));
                         
-                        var_dump(strrpos($category, '2') && strrpos($category, 'QUINQUENIO')); echo $category . "<br>";
-                        if (strrpos($category, '2') && strrpos($category, 'QUINQUENIO')) {
+                        if (stristr($category, '2') && stristr($category, 'QUINQUENIO')) {
                             $period        = '+4 years';
                             $dtCalculation = $formDtInicio;
                         } elseif ($dtVigencia) {
@@ -165,13 +127,47 @@ class PlgFabrik_FormPaymentgenerator extends PlgFabrik_Form {
                         }
                         
                         $dtInicio = $this->calculationDate($period, $dtCalculation);
-                        $dtFimO   = ($dtVigencia) ? null : $this->calculationDate($periodFimO, $dtInicio);
-                        $dtFimE   = ($dtVigencia) ? null : $this->calculationDate($periodFimE, $dtInicio);
+                        $dtFimO   = ($dtVigencia) ? null : $this->calculationDate('+12 months', $dtInicio);
+                        $dtFimE   = ($dtVigencia) ? null : $this->calculationDate('+18 months', $dtInicio);
                         $dtAlerta = $dtInicio;
 
                         $data = array($id, $category, $dtInicio, $dtFimO, $dtFimE, $valueIndustrial, $situation, $dtAlerta);
 
                         $this->insertData($table, $columns, $data);
+                    }
+                } elseif ((int) $quant->total === 1) {
+                    // If you have only one payment field filled in and it is the category corresponding to the 'PATENTE DE INVENÇÃO'
+                    if ($categoryPatente === $formCategoria[0][0]) {
+                        $categorys = $this->searchCategorys($subValues, 'PI-');
+                        
+                        $formDtInicio  = $formModel->formData[$elementInicio][0];
+                        $formDtInicio = explode(' ', $formDtInicio)[0];
+            
+                        foreach ($categorys as $category) {        
+                            if ($category == $categoryPatente) continue; 
+                            
+                            if (stristr($category, 'EXAME') && stristr($category, 'TECNICO')) {                        
+                                $period        = '+30 months';
+                                $dtCalculation = $formDtInicio;
+                            } elseif (stristr($category, '3') && stristr($category, 'ANUIDADE') && !stristr($category, '1')) {
+                                $period        = '+24 months';
+                                $dtCalculation = $formDtInicio;
+                            } else {                                
+                                $period        = '+12 months';
+                                $dtCalculation = $dtInicio;
+                            }
+                            
+                            $dtInicio = $this->calculationDate($period, $dtCalculation);
+                            $dtFimO   = $this->calculationDate('+90 days', $dtInicio);
+                            $dtFimE   = $this->calculationDate('+180 days', $dtInicio);
+                            $dtAlerta = $dtInicio;
+            
+                            $data = array($id, $category, $dtInicio, $dtFimO, $dtFimE, $valuePatente, $situation, $dtAlerta);
+    
+                            $this->insertData($table, $columns, $data);
+                        }
+                    } else {
+                        JFactory::getApplication()->enqueueMessage(JText::_('PLG_FORM_PAYMENTGENERATOR_MESSAGE_2'));
                     }
                 } else {
                     JFactory::getApplication()->enqueueMessage(JText::_('PLG_FORM_PAYMENTGENERATOR_MESSAGE_2'));
@@ -196,7 +192,7 @@ class PlgFabrik_FormPaymentgenerator extends PlgFabrik_Form {
         $this->prefix = $prefix;
 
         return array_filter($subValues, function($v, $k) {
-            return strstr($v, $this->prefix);
+            return stristr($v, $this->prefix);
         }, ARRAY_FILTER_USE_BOTH);
     }
 
