@@ -173,7 +173,7 @@ class PlgFabrik_FormPaymentgenerator extends PlgFabrik_Form {
                     JFactory::getApplication()->enqueueMessage(JText::_('PLG_FORM_PAYMENTGENERATOR_MESSAGE_2'));
                 }
             } else {
-                JFactory::getApplication()->enqueueMessage(JText::_('PLG_FORM_PAYMENTGENERATOR_MESSAGE_1'));
+                //JFactory::getApplication()->enqueueMessage(JText::_('PLG_FORM_PAYMENTGENERATOR_MESSAGE_1'));
             }
         } else {
             JFactory::getApplication()->enqueueMessage(JText::_('PLG_FORM_PAYMENTGENERATOR_MESSAGE_0'));
