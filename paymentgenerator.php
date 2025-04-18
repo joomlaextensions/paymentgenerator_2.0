@@ -191,7 +191,7 @@ class PlgFabrik_FormPaymentgenerator extends PlgFabrik_Form {
     {
         $this->prefix = $prefix;
 
-        return array_filter($subValues, function($v, $k) {
+        return array_filter((array) $subValues, function($v, $k) {
             return stristr($v, $this->prefix);
         }, ARRAY_FILTER_USE_BOTH);
     }
