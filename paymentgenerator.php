@@ -167,16 +167,16 @@ class PlgFabrik_FormPaymentgenerator extends PlgFabrik_Form {
                             $this->insertData($table, $columns, $data);
                         }
                     } else {
-                        JFactory::getApplication()->enqueueMessage(JText::_('PLG_FORM_PAYMENTGENERATOR_MESSAGE_2'));
+                        //JFactory::getApplication()->enqueueMessage(JText::_('PLG_FORM_PAYMENTGENERATOR_MESSAGE_2'));
                     }
                 } else {
-                    JFactory::getApplication()->enqueueMessage(JText::_('PLG_FORM_PAYMENTGENERATOR_MESSAGE_2'));
+                    //JFactory::getApplication()->enqueueMessage(JText::_('PLG_FORM_PAYMENTGENERATOR_MESSAGE_2'));
                 }
             } else {
-                JFactory::getApplication()->enqueueMessage(JText::_('PLG_FORM_PAYMENTGENERATOR_MESSAGE_1'));
+                //JFactory::getApplication()->enqueueMessage(JText::_('PLG_FORM_PAYMENTGENERATOR_MESSAGE_1'));
             }
         } else {
-            JFactory::getApplication()->enqueueMessage(JText::_('PLG_FORM_PAYMENTGENERATOR_MESSAGE_0'));
+            //JFactory::getApplication()->enqueueMessage(JText::_('PLG_FORM_PAYMENTGENERATOR_MESSAGE_0'));
         }
 
         return true;
@@ -191,7 +191,7 @@ class PlgFabrik_FormPaymentgenerator extends PlgFabrik_Form {
     {
         $this->prefix = $prefix;
 
-        return array_filter($subValues, function($v, $k) {
+        return array_filter((array) $subValues, function($v, $k) {
             return stristr($v, $this->prefix);
         }, ARRAY_FILTER_USE_BOTH);
     }
