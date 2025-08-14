@@ -51,6 +51,7 @@ class PlgFabrik_FormPaymentgenerator extends PlgFabrik_Form
             return;
         }
 
+
         $this->setPluginParams();
         $this->setTableForQuery();
         $this->setColumnsForQuery();
@@ -59,7 +60,7 @@ class PlgFabrik_FormPaymentgenerator extends PlgFabrik_Form
         $formData = $formModel->formData;
         $origFormData = $formModel->getOrigData()[0];
         $piType = $formData['tipo'][0];
-        $situation = $formData['situacao_pi'][0];
+        $situation = $formData['situacao_pi'];
         $idPi = $formData['id'];
 
         $qtnPayments = $this->countQtnPayments($idPi);
@@ -140,7 +141,6 @@ class PlgFabrik_FormPaymentgenerator extends PlgFabrik_Form
         $pricesInventionPatentP = $this->validatePrices('pg_prices_invention_patent_p');
 
         if(!$this->validateDate($depositDate)) {
-            Factory::getApplication()->enqueueMessage(Text::_('PLG_FORM_PAYMENTGENERATOR_MESSAGE_INVALID_DATE_TO_GENERATE'));
             return;
         }
 
@@ -241,7 +241,6 @@ class PlgFabrik_FormPaymentgenerator extends PlgFabrik_Form
         $pricesUtilityModelP = $this->validatePrices('pg_prices_utility_model_p');
 
         if(!$this->validateDate($depositDate)) {
-            Factory::getApplication()->enqueueMessage(Text::_('PLG_FORM_PAYMENTGENERATOR_MESSAGE_INVALID_DATE_TO_GENERATE'));
             return;
         }
 
@@ -340,7 +339,6 @@ class PlgFabrik_FormPaymentgenerator extends PlgFabrik_Form
         $pricesIndustrialDesign = $this->validatePrices('pg_prices_industrial_design');
 
         if(!$this->validateDate($depositDate)) {
-            Factory::getApplication()->enqueueMessage(Text::_('PLG_FORM_PAYMENTGENERATOR_MESSAGE_INVALID_DATE_TO_GENERATE'));
             return;
         }
 
@@ -390,7 +388,6 @@ class PlgFabrik_FormPaymentgenerator extends PlgFabrik_Form
         $pricesInventionPatentP = $this->validatePrices('pg_prices_trademark');
 
         if(!$this->validateDate($concessionDate)) {
-            Factory::getApplication()->enqueueMessage(Text::_('PLG_FORM_PAYMENTGENERATOR_MESSAGE_INVALID_DATE_TO_GENERATE'));
             return;
         }
 
@@ -432,7 +429,6 @@ class PlgFabrik_FormPaymentgenerator extends PlgFabrik_Form
         }
 
         if(!$this->validateDate($startDate)) {
-            Factory::getApplication()->enqueueMessage(Text::_('PLG_FORM_PAYMENTGENERATOR_MESSAGE_INVALID_DATE_TO_GENERATE'));
             return;
         }
 
@@ -497,7 +493,6 @@ class PlgFabrik_FormPaymentgenerator extends PlgFabrik_Form
         }
 
         if(!$this->validateDate($certificateDate) && $idCertificatePayment) {
-            Factory::getApplication()->enqueueMessage(Text::_('PLG_FORM_PAYMENTGENERATOR_MESSAGE_INVALID_DATE_TO_GENERATE'));
             return;
         }
 
@@ -711,14 +706,14 @@ class PlgFabrik_FormPaymentgenerator extends PlgFabrik_Form
     {
         $formModel = $this->getModel();
         $formData = $formModel->formData;
-        $situation = $formModel->formData['situacao_pi'][0];
+        $situation = $formModel->formData['situacao_pi'];
         $piType = $formData['tipo'][0];
 
         // If the form is new or the situation is not one of the expected ones, do not run
         if($formModel->isNewRecord() || !in_array($situation, ['Pedido de Proteção Depositado', 'Concedido_Registrado', 'Sigilo INPI'])) {
             return false;
         }
-
+        
         // For situation 'Concedido_Registrado', we must run only if the type is one of the expected ones
         if ($situation == 'Concedido_Registrado' && !in_array($piType, ['Patente-de-Invencao', 'Modelo-de-utilidade', 'Marca', 'Protecao-Cultivar'])) {
             return false;
@@ -966,9 +961,14 @@ class PlgFabrik_FormPaymentgenerator extends PlgFabrik_Form
     {
         $db = Factory::getContainer()->get('DatabaseDriver');
 
-        $format = $db->getDateFormat();
-        $valid  = Date::createFromFormat($format, $date);
+        try {
+            $format = $db->getDateFormat();
+            $valid  = Date::createFromFormat($format, $date);
+        } catch (Exception $e) {
+            Factory::getApplication()->enqueueMessage(Text::_('PLG_FORM_PAYMENTGENERATOR_MESSAGE_INVALID_DATE_TO_GENERATE'));
+            return false;
+        }
 
-        return $valid && $valid->format($format) === $date;
+        return $valid;
     }
 }
