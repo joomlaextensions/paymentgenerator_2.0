@@ -14,6 +14,7 @@ use Joomla\CMS\Factory;
 use Joomla\CMS\Language\Text;
 use Joomla\CMS\Plugin\PluginHelper;
 use Joomla\Registry\Registry;
+use Joomla\CMS\Date\Date;
 
 // Require the abstract plugin class
 require_once COM_FABRIK_FRONTEND . '/models/plugin-form.php';
@@ -69,7 +70,7 @@ class PlgFabrik_FormPaymentgenerator extends PlgFabrik_Form
 
         switch ($piType) {
             case 'Patente-de-Invencao':
-                if($situation == 'Pedido de Proteção Depositado' && $qtnPayments == 1) {
+                if(in_array($situation,['Sigilo INPI', 'Pedido de Proteção Depositado']) && $qtnPayments > 0) {
                     $this->generateInventionPatentP($formData);
                 } elseif ($this->checkPatentGrant($situation, $formData, $origFormData)) {
                     $this->generateInventionPatentPG($formData);
@@ -77,7 +78,7 @@ class PlgFabrik_FormPaymentgenerator extends PlgFabrik_Form
                 break;
 
             case 'Modelo-de-utilidade':
-                if($situation == 'Pedido de Proteção Depositado' && $qtnPayments == 1) {
+                if(in_array($situation,['Sigilo INPI', 'Pedido de Proteção Depositado']) && $qtnPayments > 0) {
                     $this->generateUtilityModelP($formData);
                 } elseif ($this->checkPatentGrant($situation, $formData, $origFormData)) {
                     $this->generateUtilityModelPG($formData);
@@ -85,13 +86,13 @@ class PlgFabrik_FormPaymentgenerator extends PlgFabrik_Form
                 break;
 
             case 'Desenho-industrial':
-                if($qtnPayments == 1) {
+                if($qtnPayments > 0) {
                     $this->generateIndustrialDesign($formData);
                 }
                 break;
 
             case 'Marca':
-                if($situation == 'Pedido de Proteção Depositado' && $qtnPayments > 1) {
+                if($situation == 'Pedido de Proteção Depositado' && $qtnPayments > 0) {
                     $this->generateTrademarkP($formData);
                 } elseif ($this->checkPatentGrant($situation, $formData, $origFormData)) {
                     $this->generateTrademarkPG($formData);
@@ -99,7 +100,7 @@ class PlgFabrik_FormPaymentgenerator extends PlgFabrik_Form
                 break;
 
             case 'Protecao-Cultivar':
-                if($qtnPayments > 2) {
+                if($qtnPayments > 1) {
                     $this->generatePlantVarietyProtection($formData);
                 }
                 break;
@@ -124,11 +125,24 @@ class PlgFabrik_FormPaymentgenerator extends PlgFabrik_Form
      */
     private function generateInventionPatentP($formData)
     {
+        $db = Factory::getContainer()->get('DatabaseDriver');
+
+        $alreadyGenerated = $this->findPayment($formData['id'], 'PI-EXAME TECNICO');
+
+        if($alreadyGenerated) {
+            return;
+        }
+
         $subValues = $this->getValuesForCategorys();
         $categories = $this->getCategoriesForPatentNotGranted($subValues);
 
         $depositDate = $formData[$this->getNameElementForQuery('pg_element_start')][0];
         $pricesInventionPatentP = $this->validatePrices('pg_prices_invention_patent_p');
+
+        if(!$this->validateDate($depositDate)) {
+            Factory::getApplication()->enqueueMessage(Text::_('PLG_FORM_PAYMENTGENERATOR_MESSAGE_INVALID_DATE_TO_GENERATE'));
+            return;
+        }
 
         // Insert the tecnic examination payment
         $data = Array(
@@ -153,13 +167,13 @@ class PlgFabrik_FormPaymentgenerator extends PlgFabrik_Form
             $price = $pricesInventionPatentP[$key] ?? $pricesInventionPatentP[count($pricesInventionPatentP) - 1];
 
             $data = Array(
-                $category,
-                $start,
-                $endO,
-                $endE,
-                $price,
-                $this->defaultSituationForPayments,
-                $alert
+                $category,                              // Category
+                $start,                                 // Start date
+                $endO,                                  // Ordinary end date
+                $endE,                                  // Extraordinary end date
+                $price,                                 // Price
+                $this->defaultSituationForPayments,     // Situation
+                $alert                                  // Alert date
             );
             $this->insertPayment($data);
 
@@ -213,10 +227,23 @@ class PlgFabrik_FormPaymentgenerator extends PlgFabrik_Form
      */
     private function generateUtilityModelP($formData)
     {
+        $db = Factory::getContainer()->get('DatabaseDriver');
+
+        $alreadyGenerated = $this->findPayment($formData['id'], 'MU-EXAME TECNICO');
+
+        if($alreadyGenerated) {
+            return;
+        }
+
         $subValues = $this->getValuesForCategorys();
         $categories = $this->getCategoriesForPatentNotGranted($subValues);
         $depositDate = $formData[$this->getNameElementForQuery('pg_element_start')][0];
         $pricesUtilityModelP = $this->validatePrices('pg_prices_utility_model_p');
+
+        if(!$this->validateDate($depositDate)) {
+            Factory::getApplication()->enqueueMessage(Text::_('PLG_FORM_PAYMENTGENERATOR_MESSAGE_INVALID_DATE_TO_GENERATE'));
+            return;
+        }
 
         // Insert the tecnic examination payment
         $data = Array(
@@ -241,13 +268,13 @@ class PlgFabrik_FormPaymentgenerator extends PlgFabrik_Form
             $price = $pricesUtilityModelP[$key] ?? $pricesUtilityModelP[count($pricesUtilityModelP) - 1];
 
             $data = Array(
-                $category,
-                $start,
-                $endO,
-                $endE,
-                $price,
-                $this->defaultSituationForPayments,
-                $alert
+                $category,                              // Category
+                $start,                                 // Start date
+                $endO,                                  // Ordinary end date
+                $endE,                                  // Extraordinary end date
+                $price,                                 // Price
+                $this->defaultSituationForPayments,     // Situation
+                $alert                                  // Alert date
             );
             $this->insertPayment($data);
 
@@ -301,10 +328,21 @@ class PlgFabrik_FormPaymentgenerator extends PlgFabrik_Form
      */
     private function generateIndustrialDesign($formData)
     {
+        $alreadyGenerated = $this->findPayment($formData['id'], 'DI-2ª PER.QUINQUENIO ');
+
+        if($alreadyGenerated) {
+            return;
+        }
+
         $subValues = $this->getValuesForCategorys();
         $categories = array_values($this->searchCategorys($subValues, 'QUINQUENIO'));
         $depositDate = $formData[$this->getNameElementForQuery('pg_element_start')][0];
         $pricesIndustrialDesign = $this->validatePrices('pg_prices_industrial_design');
+
+        if(!$this->validateDate($depositDate)) {
+            Factory::getApplication()->enqueueMessage(Text::_('PLG_FORM_PAYMENTGENERATOR_MESSAGE_INVALID_DATE_TO_GENERATE'));
+            return;
+        }
 
         // Insert the annuity payments
         $indexStart = 4;
@@ -313,18 +351,18 @@ class PlgFabrik_FormPaymentgenerator extends PlgFabrik_Form
             $start = $this->calculationDate("+$indexStart year", $depositDate);
             $endO = $this->calculationDate("+$indexEnd years", $depositDate);
             $endE = $this->calculationDate("+$indexEnd years +6 months", $depositDate);
-            $alert = $this->calculationDate("+$indexStart years +4 months", $depositDate);
+            $alert = $this->calculationDate("+$indexStart years +6 months", $depositDate);
 
             $price = $pricesIndustrialDesign[$key] ?? $pricesIndustrialDesign[count($pricesIndustrialDesign) - 1];
 
             $data = Array(
-                $category,
-                $start,
-                $endO,
-                $endE,
-                $price,
-                $this->defaultSituationForPayments,
-                $alert
+                $category,                              // Category
+                $start,                                 // Start date
+                $endO,                                  // Ordinary end date
+                $endE,                                  // Extraordinary end date
+                $price,                                 // Price
+                $this->defaultSituationForPayments,     // Situation
+                $alert                                  // Alert date
             );
             $this->insertPayment($data);
 
@@ -348,8 +386,13 @@ class PlgFabrik_FormPaymentgenerator extends PlgFabrik_Form
         }
 
         $subValues = $this->getValuesForCategorys();
-        $concessionDate = $formData[$this->getNameElementForQuery('pg_element_start')][1];
+        $concessionDate = $this->getDateByIdPayment($idRowConcessionTax);
         $pricesInventionPatentP = $this->validatePrices('pg_prices_trademark');
+
+        if(!$this->validateDate($concessionDate)) {
+            Factory::getApplication()->enqueueMessage(Text::_('PLG_FORM_PAYMENTGENERATOR_MESSAGE_INVALID_DATE_TO_GENERATE'));
+            return;
+        }
 
         // Delete the previous payment for the concession
         $this->deleteRowPayment($idRowConcessionTax);
@@ -376,25 +419,31 @@ class PlgFabrik_FormPaymentgenerator extends PlgFabrik_Form
      */
     private function generateTrademarkPG($formData)
     {
-        $alreadyGenerated = $this->findPayment($formData['id'], 'M-2ª PRORROGACAO');
+        $alreadyGenerated = $this->findPayment($formData['id'], 'M-1ª PRORROGACAO');
+        $startDate = $formData['data_situacao'];
 
         if($alreadyGenerated) {
+            return;
+        }
+
+        if(!$startDate) {
+            Factory::getApplication()->enqueueMessage(Text::_('PLG_FORM_PAYMENTGENERATOR_MESSAGE_DATE_MISSING_FOR_TRADEMARK_PG'));
+            return;
+        }
+
+        if(!$this->validateDate($startDate)) {
+            Factory::getApplication()->enqueueMessage(Text::_('PLG_FORM_PAYMENTGENERATOR_MESSAGE_INVALID_DATE_TO_GENERATE'));
             return;
         }
 
         $subValues = $this->getValuesForCategorys();
         $categories = $this->searchCategorys($subValues, 'PRORROGACAO');
 
-        $startDate = $formData[$this->getNameElementForQuery('pg_element_start')][2];
         $pricesInventionPatentP = $this->validatePrices('pg_prices_trademark');
         array_shift($pricesInventionPatentP); // Remove the first element, which is not a price for the annuity
 
-        // First, delete the previous payment for the concession
-        $idRowFirstProrrogation = $this->findPayment($formData['id'], 'M-1ª PRORROGACAO');
-        $this->deleteRowPayment($idRowFirstProrrogation);
-
         // Insert the annuity payments
-        $indexStart = 0;
+        $indexStart = 9;
         foreach ($categories as $key => $category) {
             $indexEnd = $indexStart + 1;
             $start = $this->calculationDate("+$indexStart year", $startDate);
@@ -405,13 +454,13 @@ class PlgFabrik_FormPaymentgenerator extends PlgFabrik_Form
             $price = $pricesInventionPatentP[$key] ?? $pricesInventionPatentP[count($pricesInventionPatentP) - 1];
 
             $data = Array(
-                $category,
-                $start,
-                $endO,
-                $endE,
-                $price,
-                $this->defaultSituationForPayments,
-                $alert
+                $category,                              // Category
+                $start,                                 // Start date
+                $endO,                                  // Ordinary end date
+                $endE,                                  // Extraordinary end date
+                $price,                                 // Price
+                $this->defaultSituationForPayments,     // Situation
+                $alert                                  // Alert date
             );
             $this->insertPayment($data);
 
@@ -430,16 +479,27 @@ class PlgFabrik_FormPaymentgenerator extends PlgFabrik_Form
     {
         $db = Factory::getContainer()->get('DatabaseDriver');
 
-        $alreadyGenerated = $this->findPayment($formData['id'], 'C-CERTIFICADO');
+        $alreadyGenerated = $this->findPayment($formData['id'], 'C-1º MANUTENCAO');
 
-        if(!$alreadyGenerated) {
+        if($alreadyGenerated) {
             return;
         }
 
         $subValues = $this->getValuesForCategorys();
         $categories = array_values($this->searchCategorys($subValues, 'MANUTENCAO'));
-        $certificateDate = $formData[$this->getNameElementForQuery('pg_element_start')][1];
+        $idCertificatePayment = $this->findPayment($formData['id'], 'C-CERTIFICADO');
+        $certificateDate = $this->getDateByIdPayment($idCertificatePayment);
         $pricesPlantVarietyProtection = $this->validatePrices('pg_prices_plant_variety_protection');
+
+        if(!$idCertificatePayment) {
+            Factory::getApplication()->enqueueMessage(Text::_('PLG_FORM_PAYMENTGENERATOR_MESSAGE_DATE_MISSING_FOR_PLANT_VARIETY_PROTECTION'));
+            return;
+        }
+
+        if(!$this->validateDate($certificateDate) && $idCertificatePayment) {
+            Factory::getApplication()->enqueueMessage(Text::_('PLG_FORM_PAYMENTGENERATOR_MESSAGE_INVALID_DATE_TO_GENERATE'));
+            return;
+        }
 
         // Insert the annuity payments
         $indexStart = 0;
@@ -452,13 +512,13 @@ class PlgFabrik_FormPaymentgenerator extends PlgFabrik_Form
             $price = $pricesPlantVarietyProtection[$key] ?? $pricesPlantVarietyProtection[count($pricesPlantVarietyProtection) - 1];
 
             $data = Array(
-                $category,
-                $start,
-                $endO,
-                $db->getNullDate(),
-                $price,
-                $this->defaultSituationForPayments,
-                $alert
+                $category,                              // Category
+                $start,                                 // Start date
+                $endO,                                  // Ordinary end date
+                $db->getNullDate(),                     // Extraordinary end date
+                $price,                                 // Price
+                $this->defaultSituationForPayments,     // Situation
+                $alert                                  // Alert date
             );
             $this->insertPayment($data);
 
@@ -481,11 +541,31 @@ class PlgFabrik_FormPaymentgenerator extends PlgFabrik_Form
         $query = $db->getQuery(true)
             ->select($db->qn('id'))
             ->from($db->qn($this->table))
-            ->where($db->qn('parent_id') . ' = ' . (int) $parentId)
+            ->where($db->qn('parent_id') . ' = ' . $db->q((int) $parentId))
             ->where($db->qn('categoria') . ' = ' . $db->q($category));
         $db->setQuery($query);
 
         return (int) $db->loadResult();
+    }
+
+    /**
+     * This method searches in the database for the date by the payment id
+     * 
+     * @param       int         $id               
+     * 
+     * @return      string
+     */
+    private function getDateByIdPayment($id)
+    {
+        $db = Factory::getContainer()->get('DatabaseDriver');
+
+        $query = $db->getQuery(true)
+            ->select($db->qn($this->getNameElementForQuery('pg_element_start')))
+            ->from($db->qn($this->table))
+            ->where($db->qn('id') . ' = ' . $db->q($id));
+        $db->setQuery($query);
+
+        return $db->loadResult();
     }
 
     /**
@@ -635,12 +715,12 @@ class PlgFabrik_FormPaymentgenerator extends PlgFabrik_Form
         $piType = $formData['tipo'][0];
 
         // If the form is new or the situation is not one of the expected ones, do not run
-        if($formModel->isNewRecord() || !in_array($situation, ['Pedido de Proteção Depositado', 'Concedido_Registrado'])) {
+        if($formModel->isNewRecord() || !in_array($situation, ['Pedido de Proteção Depositado', 'Concedido_Registrado', 'Sigilo INPI'])) {
             return false;
         }
 
         // For situation 'Concedido_Registrado', we must run only if the type is one of the expected ones
-        if ($situation == 'Concedido_Registrado' && !in_array($piType, ['Patente-de-Invencao', 'Modelo-de-utilidade', 'Marca'])) {
+        if ($situation == 'Concedido_Registrado' && !in_array($piType, ['Patente-de-Invencao', 'Modelo-de-utilidade', 'Marca', 'Protecao-Cultivar'])) {
             return false;
         }
 
@@ -845,7 +925,7 @@ class PlgFabrik_FormPaymentgenerator extends PlgFabrik_Form
             $db->transactionCommit();
         } catch (Exception $e) {
             $db->transactionRollback();
-            Factory::getApplication()->enqueueMessage(Text::_('PLG_FORM_PAYMENTGENERATOR_MESSAGE_3') . " - " . $e->getMessage());
+            Factory::getApplication()->enqueueMessage(Text::_('PLG_FORM_PAYMENTGENERATOR_MESSAGE_ERROR_DATABASE') . " - " . $e->getMessage());
         }
     }
 
@@ -871,7 +951,24 @@ class PlgFabrik_FormPaymentgenerator extends PlgFabrik_Form
             $db->transactionCommit();
         } catch (Exception $e) {
             $db->transactionRollback();
-            Factory::getApplication()->enqueueMessage(Text::_('PLG_FORM_PAYMENTGENERATOR_MESSAGE_4') . " - " . $e->getMessage());
+            Factory::getApplication()->enqueueMessage(Text::_('PLG_FORM_PAYMENTGENERATOR_MESSAGE_ERROR_DATABASE_UPDATE') . " - " . $e->getMessage());
         }
+    }
+
+    /**
+     * Validate Date.
+     *
+     * @param       string      $date       Date to validate.
+     *
+     * @return      bool
+     */
+    private function validateDate($date)
+    {
+        $db = Factory::getContainer()->get('DatabaseDriver');
+
+        $format = $db->getDateFormat();
+        $valid  = Date::createFromFormat($format, $date);
+
+        return $valid && $valid->format($format) === $date;
     }
 }

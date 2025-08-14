@@ -43,47 +43,56 @@ Os valores devem ser informados como **lista separada por vírgulas**, onde cada
 ### ⚙️ Critérios Gerais (para o plugin executar a geração de pagamentos)
 
 - Deve ser uma edição de formulário
-- A situação da PI deve ser 'Pedido de proteção depositado' ou 'Concedido/Registrado'
-- Para os casos das PIs com situação 'Concedido/Registrado' elas devem ser do tipo 'Patente de invenção', 'Modelo de utilidade' ou 'Marca'
+- A situação da PI deve ser 'Pedido de proteção depositado' ou 'Concedido/Registrado' ou 'Sigilo INPI'
+- Para os casos das PIs com situação 'Concedido/Registrado' elas devem ser do tipo 'Patente de invenção', 'Modelo de utilidade' ou 'Marca' ou 'Proteção de cultivar'
 - O campo **Categoria** deve estar preenchido com pelo menos um dos valores, 'Taxa de depósito' ou 'Taxa de pedido'.
-- O campo **Início** deve estar preenchido.
+- O campo de data **Início** deve estar preenchido.
 - As regras específicas de cada tipo de PI devem ser atendidas (veja abaixo).
 
 ### ⚙️ Critérios Específicos por Tipo de Propriedade Intelectual
 
 ### 1. **Patente de Invenção – Pedido**
-- Haver apenas um pagamento presente **(Taxa de depósito)**
+- Haver um ou mais pagamentos presentes **(Taxa de depósito)**
+- Estar na situação **'Sigilo INPI'** ou **'Pedido de proteção depositado'**
+- Não ter um pagamento com a categoria **'PI-Exame técnico'** (Entende-se que já foram gerados os pagamentos)
 - Adiciona-se todos os critérios gerais **citados acima**
 
 ### 2. **Patente de Invenção – Carta de Patente**
-- Não houver outros pagamentos já contemplando alguma categoria de **Carta de patente (CP)**
+- Não houver outros pagamentos já contemplando alguma categoria de **Carta de patente (CP)** (Entende-se que já foram gerados os pagamentos)
+- Estar na situação **'Concedido/Registrado'**
 - Adiciona-se todos os critérios gerais **citados acima**
 
 ### 3. **Modelo de Utilidade – Pedido**
-- Haver apenas um pagamento presente **(Taxa de depósito)**
+- Haver um ou mais pagamentos presentes **(Taxa de depósito)**
+- Estar na situação **'Sigilo INPI'** ou **'Pedido de proteção depositado'**
+- Não ter um pagamento com a categoria **'MU-Exame técnico'** (Entende-se que já foram gerados os pagamentos)
 - Adiciona-se todos os critérios gerais **citados acima**
 
 ### 4. **Modelo de Utilidade – Carta de Patente**
-- Não houver outros pagamentos já contemplando alguma categoria de **Carta de patente (CP)**
+- Não houver outros pagamentos já contemplando alguma categoria de **Carta de patente (CP)** (Entende-se que já foram gerados os pagamentos)
+- Estar na situação **'Concedido/Registrado'**
 - Adiciona-se todos os critérios gerais **citados acima**
 
 ### 5. **Marcas - Pedido**
-- Haver dois ou mais pagamentos presentes **(M-TAXA DE PEDIDO e M-TAXA DE CONCESSÃO)**
+- Haver um ou mais pagamentos presentes
+- Estar na situação **'Pedido de proteção depositado'**
 - Estar presente um pagamento com a categoria **Taxa de concessão**
 - Adiciona-se todos os critérios gerais **citados acima**
 
 ### 6. **Marcas - Carta de Patente**
 - Haver dois ou mais pagamentos presentes **(M-TAXA DE PEDIDO e M-TAXA DE CONCESSÃO)**
-- Não haver um pagamento com categoria **M-2ª PRORROGACAO** (entende-se que já foi gerado os pagamentos)
+- Não haver um pagamento com categoria **M-1ª PRORROGACAO** (entende-se que já foi gerado os pagamentos)
+- Estar na situação **'Concedido/Registrado'**
 - Adiciona-se todos os critérios gerais **citados acima**
 
 ### 7. **Desenho Industrial**
-- Haver apenas um pagamento presente
+- Haver um ou mais pagamentos presentes
+- Não haver um pagamento com categoria **DI-2ª PER.QUINQUENIO** (entende-se que já foi gerado os pagamentos)
 - Adiciona-se todos os critérios gerais **citados acima**
 
 ### 8. **Proteção de Cultivares**
 - Haver dois ou mais pagamentos presentes **(C-TAXA DE PEDIDO e C-CERTIFICADO)**
-- Não haver um pagamento com categoria **C-CERTIFICADO** (entende-se que já foi gerado os pagamentos)
+- Não haver um pagamento com categoria **C-1º MANUTENCAO** (entende-se que já foi gerado os pagamentos)
 - Adiciona-se todos os critérios gerais **citados acima**
 
 ## 📌 Observações
