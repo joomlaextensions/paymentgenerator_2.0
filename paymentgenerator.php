@@ -51,7 +51,6 @@ class PlgFabrik_FormPaymentgenerator extends PlgFabrik_Form
             return;
         }
 
-
         $this->setPluginParams();
         $this->setTableForQuery();
         $this->setColumnsForQuery();
@@ -59,8 +58,8 @@ class PlgFabrik_FormPaymentgenerator extends PlgFabrik_Form
 
         $formData = $formModel->formData;
         $origFormData = $formModel->getOrigData()[0];
-        $piType = $formData['tipo'][0];
-        $situation = $formData['situacao_pi'];
+        $piType = is_array($formData['tipo']) ? $formData['tipo'][0] : $formData['tipo'];
+        $situation = is_array($formData['situacao_pi']) ? $formData['situacao_pi'][0] : $formData['situacao_pi'];
         $idPi = $formData['id'];
 
         $qtnPayments = $this->countQtnPayments($idPi);
@@ -207,8 +206,11 @@ class PlgFabrik_FormPaymentgenerator extends PlgFabrik_Form
         for ($i=$indexNextToPay; $i < count($rowsPayments); $i++) { 
             $id = $rowsPayments[$i]->id;
             $oldCategory = $rowsPayments[$i]->categoria;
-            $newCategory = $categories[$i];
-            $newPrice = $pricesInventionPatentPG[$i] ?? $pricesInventionPatentPG[count($pricesInventionPatentPG) - 1];
+            $arrNewCategory = array_filter($categories, function ($item) use ($oldCategory) {
+                return stripos($item, $oldCategory) !== false;
+            });
+            $newCategory = array_values($arrNewCategory)[0];
+            $newPrice = $pricesInventionPatentPG[array_keys($arrNewCategory)[0]] ?? $pricesInventionPatentPG[count($pricesInventionPatentPG) - 1];
 
             if(stripos($oldCategory, 'ANUIDADE') === false || !isset($newCategory)) {
                 continue;
@@ -307,8 +309,11 @@ class PlgFabrik_FormPaymentgenerator extends PlgFabrik_Form
         for ($i=$indexNextToPay; $i < count($rowsPayments); $i++) {
             $id = $rowsPayments[$i]->id;
             $oldCategory = $rowsPayments[$i]->categoria;
-            $newCategory = $categories[$i];
-            $newPrice = $pricesInventionPatentPG[$i] ?? $pricesInventionPatentPG[count($pricesInventionPatentPG) - 1];
+            $arrNewCategory = array_filter($categories, function ($item) use ($oldCategory) {
+                return stripos($item, $oldCategory) !== false;
+            });
+            $newCategory = array_values($arrNewCategory)[0];
+            $newPrice = $pricesInventionPatentPG[array_keys($arrNewCategory)[0]] ?? $pricesInventionPatentPG[count($pricesInventionPatentPG) - 1];
 
             if(stripos($oldCategory, 'ANUIDADE') === false || !isset($newCategory)) {
                 continue;
@@ -706,7 +711,7 @@ class PlgFabrik_FormPaymentgenerator extends PlgFabrik_Form
     {
         $formModel = $this->getModel();
         $formData = $formModel->formData;
-        $situation = $formModel->formData['situacao_pi'];
+        $situation = is_array($formData['situacao_pi']) ? $formData['situacao_pi'][0] : $formData['situacao_pi'];
         $piType = $formData['tipo'][0];
 
         // If the form is new or the situation is not one of the expected ones, do not run
