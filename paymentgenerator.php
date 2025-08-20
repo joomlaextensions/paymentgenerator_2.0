@@ -429,7 +429,7 @@ class PlgFabrik_FormPaymentgenerator extends PlgFabrik_Form
         }
 
         if(!$startDate) {
-            Factory::getApplication()->enqueueMessage(Text::_('PLG_FORM_PAYMENTGENERATOR_MESSAGE_DATE_MISSING_FOR_TRADEMARK_PG'));
+            //Factory::getApplication()->enqueueMessage(Text::_('PLG_FORM_PAYMENTGENERATOR_MESSAGE_DATE_MISSING_FOR_TRADEMARK_PG'));
             return;
         }
 
