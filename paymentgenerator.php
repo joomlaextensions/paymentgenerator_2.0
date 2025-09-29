@@ -2,191 +2,890 @@
 
 /**
  * @package     Joomla.Plugin
- * @subpackage  Fabrik.form.textextract
- * @copyright   Copyright (C) 2005-2016  Media A-Team, Inc. - All rights reserved.
+ * @subpackage  Fabrik.form.paymentgenerator
+ * @copyright   Copyright (C) 2024 Jlowcode Org - All rights reserved.
  * @license     GNU/GPL http://www.gnu.org/copyleft/gpl.html
  */
 
 // No direct access
 defined('_JEXEC') or die('Restricted access');
 
+use Joomla\CMS\Factory;
+use Joomla\CMS\Language\Text;
+use Joomla\CMS\Plugin\PluginHelper;
+use Joomla\Registry\Registry;
+use Joomla\CMS\Date\Date;
+
 // Require the abstract plugin class
 require_once COM_FABRIK_FRONTEND . '/models/plugin-form.php';
 
 /**
- * Run some php when the form is submitted
+ * Verifies the current form and generates information for the chosen group and field.
  *
  * @package     Joomla.Plugin
- * @subpackage  Fabrik.form.php
+ * @subpackage  Fabrik.form.paymentgenerator
  * @since       3.0
  */
-class PlgFabrik_FormPaymentgenerator extends PlgFabrik_Form {
-
+class PlgFabrik_FormPaymentgenerator extends PlgFabrik_Form 
+{
     private $prefix;
+    private $table;
+    private $pluginParams;
+    private $columns;
+    private $defaultSituationForPayments;
 
     /**
      * Run right at the end of the form processing
      * form needs to be set to record in database for this to hook to be called
      *
-     * @return	bool
+     * @return	    bool
      */
-    public function onAfterProcess() {
+    public function onAfterProcess()
+    {
         $params    = $this->getParams();
         $formModel = $this->getModel();
+        $listModel = $formModel->getListModel();
+        $elements = $listModel->getElements('id');
 
-        $group     = (int) $params->get('paymentgenerator_group', 0);
-        $field     = (int) $params->get('paymentgenerator_field', 0);
-        $situation = $params->get('paymentgenerator_situation', '');
-        $inicio    = (int) $params->get('paymentgenerator_inicio', 0);
-        $fimO      = (int) $params->get('paymentgenerator_fim_o', 0);
-        $fimE      = (int) $params->get('paymentgenerator_fim_e', 0);
-        $alerta    = (int) $params->get('paymentgenerator_dt_alerta', 0);
+        if(!$this->mustRun()) {
+            return;
+        }
 
-        $categoryPatente    = strtoupper($params->get('paymentgenerator_category_patente', ''));
-        $valuePatente       = $params->get('paymentgenerator_value_patente', '');
-        $categoryMarca      = strtoupper($params->get('paymentgenerator_category_marca', ''));
-        $valueMarca         = $params->get('paymentgenerator_value_marca', '');
-        $categoryIndustrial = strtoupper($params->get('paymentgenerator_category_industrial', ''));
-        $valueIndustrial    = $params->get('paymentgenerator_value_industrial', '');
+        $this->setPluginParams();
+        $this->setTableForQuery();
+        $this->setColumnsForQuery();
+        $this->setDefaultSituationForPayments();
 
-        $id            = (int) $formModel->formData['id'];
-        $formCategoria = $formModel->formData['categoria'];
+        $formData = $formModel->formData;
+        $origFormData = $formModel->getOrigData()[0];
+        $piType = is_array($formData['tipo']) ? $formData['tipo'][0] : $formData['tipo'];
+        $situation = is_array($formData['situacao_pi']) ? $formData['situacao_pi'][0] : $formData['situacao_pi'];
+        $idPi = $formData['id'];
 
-        if ($group !== 0) {            
-            $table = $formModel->getListModel()->getTable()->db_table_name . "_" . $group . "_repeat";
+        $qtnPayments = $this->countQtnPayments($idPi);
 
-            $pluginManager = FabrikWorker::getPluginManager();
-            $elementModel  = $pluginManager->getElementPlugin($field)->element;
-            
-            $elementField  = $elementModel->name;
-            $elementInicio = $pluginManager->getElementPlugin($inicio)->element->name;
-            $elementFimO   = $pluginManager->getElementPlugin($fimO)->element->name;
-            $elementFimE   = $pluginManager->getElementPlugin($fimE)->element->name;
-            $elementAlerta = $pluginManager->getElementPlugin($alerta)->element->name;
+        if(!$this->checkToGenerate($formData)) {
+            return;
+        }
 
-            $columns = array('parent_id', $elementField, $elementInicio, $elementFimO, $elementFimE, 'valor', 'situacao_pg', $elementAlerta);
-            
-            $quant     = $this->selectQuantityRepeats($table, $id, 'parent_id');
-            $objParams = json_decode($elementModel->params);
-            $subValues = $objParams->sub_options->sub_values;
-
-            if ((int) $quant->total > 0 && (int) $quant->total <= 2) {
-                if (($categoryMarca === $formCategoria[0][0] XOR (isset($formCategoria[1]) && $categoryMarca === $formCategoria[1][0])) && 
-                    (stristr($formCategoria[0][0], 'PEDIDO') XOR (isset($formCategoria[1]) && stristr($formCategoria[1][0], 'PEDIDO')))) {
-                    $categorys = $this->searchCategorys($subValues, 'M-');
-
-                    // Search for the entered date corresponding to the base payment field of the calculation
-                    $key          = array_search($categoryMarca, array_column($formCategoria, '0'));
-                    $formDtInicio = $formModel->formData[$elementInicio][$key];
-                    $formDtInicio = explode(' ', $formDtInicio)[0];
-
-                    // Add the corresponding time interval to the category's financial control table
-                    foreach ($categorys as $category) {
-                        if ($category == $categoryMarca || stristr($category, 'PEDIDO')) continue; 
-                        
-                        if (stristr($category, '1') && stristr($category, 'PRORROGACAO')) {
-                            $period        = '+9 years';
-                            $dtCalculation = $formDtInicio;
-                        } else {                                
-                            $period        = '+10 years';
-                            $dtCalculation = $dtInicio;
-                        }
-                        
-                        $dtInicio = $this->calculationDate($period, $dtCalculation);
-                        $dtFimO   = $this->calculationDate('+12 months', $dtInicio);
-                        $dtFimE   = $this->calculationDate('+18 months', $dtInicio);
-                        $dtAlerta = $dtInicio;
-
-                        $data = array($id, $category, $dtInicio, $dtFimO, $dtFimE, $valueMarca, $situation, $dtAlerta);
-                        
-                        $this->insertData($table, $columns, $data);
-                    }
-                } elseif ($categoryIndustrial === $formCategoria[0][0] XOR (isset($formCategoria[1]) && $categoryIndustrial === $formCategoria[1][0])) {
-                    $categorys = $this->searchCategorys($subValues, 'DI-');
-
-                    // Search for the entered date corresponding to the base payment field of the calculation
-                    $key          = array_search($categoryIndustrial, array_column($formCategoria, '0'));
-                    $formDtInicio = $formModel->formData[$elementInicio][$key];
-                    $formDtInicio = explode(' ', $formDtInicio)[0];
-
-                    // Add the corresponding time interval to the category's financial control table
-                    foreach ($categorys as $category) {
-                        if ($category == $categoryIndustrial || stristr($category, 'CONCESSAO')) continue; 
-                        
-                        $dtVigencia = (stristr($category, 'DATA') && stristr($category, 'VIGENCIA'));
-                        
-                        if (stristr($category, '2') && stristr($category, 'QUINQUENIO')) {
-                            $period        = '+4 years';
-                            $dtCalculation = $formDtInicio;
-                        } elseif ($dtVigencia) {
-                            $period        = '+25 years';
-                            $dtCalculation = $formDtInicio;
-                        } else {
-                            $period        = '+5 years';
-                            $dtCalculation = $dtInicio;
-                        }
-                        
-                        $dtInicio = $this->calculationDate($period, $dtCalculation);
-                        $dtFimO   = ($dtVigencia) ? null : $this->calculationDate('+12 months', $dtInicio);
-                        $dtFimE   = ($dtVigencia) ? null : $this->calculationDate('+18 months', $dtInicio);
-                        $dtAlerta = $dtInicio;
-
-                        $data = array($id, $category, $dtInicio, $dtFimO, $dtFimE, $valueIndustrial, $situation, $dtAlerta);
-
-                        $this->insertData($table, $columns, $data);
-                    }
-                } elseif ((int) $quant->total === 1) {
-                    // If you have only one payment field filled in and it is the category corresponding to the 'PATENTE DE INVENÇÃO'
-                    if ($categoryPatente === $formCategoria[0][0]) {
-                        $categorys = $this->searchCategorys($subValues, 'PI-');
-                        
-                        $formDtInicio  = $formModel->formData[$elementInicio][0];
-                        $formDtInicio = explode(' ', $formDtInicio)[0];
-            
-                        foreach ($categorys as $category) {        
-                            if ($category == $categoryPatente) continue; 
-                            
-                            if (stristr($category, 'EXAME') && stristr($category, 'TECNICO')) {                        
-                                $period        = '+30 months';
-                                $dtCalculation = $formDtInicio;
-                            } elseif (stristr($category, '3') && stristr($category, 'ANUIDADE') && !stristr($category, '1')) {
-                                $period        = '+24 months';
-                                $dtCalculation = $formDtInicio;
-                            } else {                                
-                                $period        = '+12 months';
-                                $dtCalculation = $dtInicio;
-                            }
-                            
-                            $dtInicio = $this->calculationDate($period, $dtCalculation);
-                            $dtFimO   = $this->calculationDate('+90 days', $dtInicio);
-                            $dtFimE   = $this->calculationDate('+180 days', $dtInicio);
-                            $dtAlerta = $dtInicio;
-            
-                            $data = array($id, $category, $dtInicio, $dtFimO, $dtFimE, $valuePatente, $situation, $dtAlerta);
-    
-                            $this->insertData($table, $columns, $data);
-                        }
-                    } else {
-                        //JFactory::getApplication()->enqueueMessage(JText::_('PLG_FORM_PAYMENTGENERATOR_MESSAGE_2'));
-                    }
-                } else {
-                    //JFactory::getApplication()->enqueueMessage(JText::_('PLG_FORM_PAYMENTGENERATOR_MESSAGE_2'));
+        switch ($piType) {
+            case 'Patente-de-Invencao':
+                if(in_array($situation,['Sigilo INPI', 'Pedido de Proteção Depositado']) && $qtnPayments > 0) {
+                    $this->generateInventionPatentP($formData);
+                } elseif ($this->checkPatentGrant($situation, $formData, $origFormData)) {
+                    $this->generateInventionPatentPG($formData);
                 }
-            } else {
-                //JFactory::getApplication()->enqueueMessage(JText::_('PLG_FORM_PAYMENTGENERATOR_MESSAGE_1'));
-            }
-        } else {
-            //JFactory::getApplication()->enqueueMessage(JText::_('PLG_FORM_PAYMENTGENERATOR_MESSAGE_0'));
+                break;
+
+            case 'Modelo-de-utilidade':
+                if(in_array($situation,['Sigilo INPI', 'Pedido de Proteção Depositado']) && $qtnPayments > 0) {
+                    $this->generateUtilityModelP($formData);
+                } elseif ($this->checkPatentGrant($situation, $formData, $origFormData)) {
+                    $this->generateUtilityModelPG($formData);
+                }
+                break;
+
+            case 'Desenho-industrial':
+                if($qtnPayments > 0) {
+                    $this->generateIndustrialDesign($formData);
+                }
+                break;
+
+            case 'Marca':
+                if($situation == 'Pedido de Proteção Depositado' && $qtnPayments > 0) {
+                    $this->generateTrademarkP($formData);
+                } elseif ($this->checkPatentGrant($situation, $formData, $origFormData)) {
+                    $this->generateTrademarkPG($formData);
+                }
+                break;
+
+            case 'Protecao-Cultivar':
+                if($qtnPayments > 1) {
+                    $this->generatePlantVarietyProtection($formData);
+                }
+                break;
+
+            case 'Programa-de-Computador':
+            case 'Cultivar':
+            case 'Topografia-de-Circuito-Integrado':
+            case 'Indicacao-Geografica':
+                // No payment generation for those type
+                break;
         }
 
         return true;
     }
 
+    /**
+     * This method generates the payment for the Invention Patent.
+     * 
+     * @param       array       $formData       The form data to generate the payment.
+     * 
+     * @return      void
+     */
+    private function generateInventionPatentP($formData)
+    {
+        $db = Factory::getContainer()->get('DatabaseDriver');
+
+        $alreadyGenerated = $this->findPayment($formData['id'], 'PI-EXAME TECNICO');
+
+        if($alreadyGenerated) {
+            return;
+        }
+
+        $subValues = $this->getValuesForCategorys();
+        $categories = $this->getCategoriesForPatentNotGranted($subValues);
+
+        $depositDate = $formData[$this->getNameElementForQuery('pg_element_start')][0];
+        $pricesInventionPatentP = $this->validatePrices('pg_prices_invention_patent_p');
+
+        if(!$this->validateDate($depositDate)) {
+            return;
+        }
+
+        // Insert the tecnic examination payment
+        $data = Array(
+            'PI-EXAME TECNICO',                                         // Category
+            $depositDate,                                               // Start date   
+            $this->calculationDate('+3 years', $depositDate),           // Ordinary end date
+            $db->getNullDate(),                                         // Extraordinary end date    
+            $pricesInventionPatentP[0],                                 // Price  
+            $this->defaultSituationForPayments,                         // Situation
+            $this->calculationDate('+1 year', $depositDate)             // Alert date
+        );
+        $this->insertPayment($data);
+
+        // Insert the annuity payments
+        $indexStart = 2;
+        foreach ($categories as $key => $category) {
+            $start = $this->calculationDate("+$indexStart year", $depositDate);
+            $endO = $this->calculationDate("+$indexStart year +3 months", $depositDate);
+            $endE = $this->calculationDate("+$indexStart year +9 months", $depositDate);
+            $alert = $this->calculationDate("+$indexStart year +1 month", $depositDate);
+
+            $price = $pricesInventionPatentP[$key] ?? $pricesInventionPatentP[count($pricesInventionPatentP) - 1];
+
+            $data = Array(
+                $category,                              // Category
+                $start,                                 // Start date
+                $endO,                                  // Ordinary end date
+                $endE,                                  // Extraordinary end date
+                $price,                                 // Price
+                $this->defaultSituationForPayments,     // Situation
+                $alert                                  // Alert date
+            );
+            $this->insertPayment($data);
+
+            $indexStart++;
+        }
+    }
+
+    /**
+     * This method update the categories for the Invention Patent payment when the situation is changed to Patent Grant.
+     * 
+     * @param       array       $formData       The form data to generate the payment.
+     * 
+     * @return      void
+     */
+    private function generateInventionPatentPG($formData)
+    {
+        $idPi = $formData['id'];
+
+        $subValues = $this->getValuesForCategorys();
+        $indexNextToPay = $this->checkIndexNextPayment($formData);
+        $categories = array_values($this->searchCategorys($subValues, ' CP'));
+        $pricesInventionPatentPG = $this->validatePrices('pg_prices_invention_patent_pg');
+        $rowsPayments = $this->getRowsPayments($idPi);
+
+        // To make the indexes equal to $formData, add this values to the arrays
+        array_unshift($categories, 'PI-EXAME TECNICO');
+        array_unshift($categories, 'PI-TAXA DE DEPOSITO');
+        array_unshift($pricesInventionPatentPG, '');
+
+        // Update categories and prices for the payments that still need to be paid
+        for ($i=$indexNextToPay; $i < count($rowsPayments); $i++) { 
+            $id = $rowsPayments[$i]->id;
+            $oldCategory = $rowsPayments[$i]->categoria;
+            $arrNewCategory = array_filter($categories, function ($item) use ($oldCategory) {
+                return stripos($item, $oldCategory) !== false;
+            });
+            $newCategory = array_values($arrNewCategory)[0];
+            $newPrice = $pricesInventionPatentPG[array_keys($arrNewCategory)[0]] ?? $pricesInventionPatentPG[count($pricesInventionPatentPG) - 1];
+
+            if(stripos($oldCategory, 'ANUIDADE') === false || !isset($newCategory)) {
+                continue;
+            }
+
+            $this->updatePaymentForPatentGrant($id, $newCategory, $newPrice);
+        }
+    }
+
+    /**
+     * This method generates the payment for the Utility Model.
+     * 
+     * @param       array       $formData       The form data to generate the payment.
+     * 
+     * @return      void
+     */
+    private function generateUtilityModelP($formData)
+    {
+        $db = Factory::getContainer()->get('DatabaseDriver');
+
+        $alreadyGenerated = $this->findPayment($formData['id'], 'MU-EXAME TECNICO');
+
+        if($alreadyGenerated) {
+            return;
+        }
+
+        $subValues = $this->getValuesForCategorys();
+        $categories = $this->getCategoriesForPatentNotGranted($subValues);
+        $depositDate = $formData[$this->getNameElementForQuery('pg_element_start')][0];
+        $pricesUtilityModelP = $this->validatePrices('pg_prices_utility_model_p');
+
+        if(!$this->validateDate($depositDate)) {
+            return;
+        }
+
+        // Insert the tecnic examination payment
+        $data = Array(
+            'MU - EXAME TÉCNICO',                                   // Category
+            $depositDate,                                           // Start date
+            $this->calculationDate('+3 years', $depositDate),       // Ordinary end date
+            $db->getNullDate(),                                     // Extraordinary end date    
+            $pricesUtilityModelP[0],                                // Price
+            $this->defaultSituationForPayments,                     // Situation
+            $this->calculationDate('+1 year', $depositDate)         // Alert date
+        );
+        $this->insertPayment($data);
+
+        // Insert the annuity payments
+        $indexStart = 2;
+        foreach ($categories as $key => $category) {
+            $start = $this->calculationDate("+$indexStart year", $depositDate);
+            $endO = $this->calculationDate("+$indexStart year +3 months", $depositDate);
+            $endE = $this->calculationDate("+$indexStart year +9 months", $depositDate);
+            $alert = $this->calculationDate("+$indexStart year +1 month", $depositDate);
+
+            $price = $pricesUtilityModelP[$key] ?? $pricesUtilityModelP[count($pricesUtilityModelP) - 1];
+
+            $data = Array(
+                $category,                              // Category
+                $start,                                 // Start date
+                $endO,                                  // Ordinary end date
+                $endE,                                  // Extraordinary end date
+                $price,                                 // Price
+                $this->defaultSituationForPayments,     // Situation
+                $alert                                  // Alert date
+            );
+            $this->insertPayment($data);
+
+            $indexStart++;
+        }
+    }
+
+    /**
+     * This method update the categories for the Utility Model payment when the situation is changed to Patent Grant.
+     * 
+     * @param       array       $formData       The form data to generate the payment.
+     * 
+     * @return      void
+     */
+    private function generateUtilityModelPG($formData)
+    {
+        $idPi = $formData['id'];
+
+        $subValues = $this->getValuesForCategorys();
+        $indexNextToPay = $this->checkIndexNextPayment($formData);
+        $categories = array_values($this->searchCategorys($subValues, ' CP'));
+        $pricesInventionPatentPG = $this->validatePrices('pg_prices_utility_model_pg');
+        $rowsPayments = $this->getRowsPayments($idPi);
+
+        // To make the indexes equal to $formData, add this values to the arrays
+        array_unshift($categories, 'MU - EXAME TÉCNICO');
+        array_unshift($categories, 'MU - TAXA DE DEPÓSITO');
+        array_unshift($pricesInventionPatentPG, '');
+
+        // Update categories and prices for the payments that still need to be paid
+        for ($i=$indexNextToPay; $i < count($rowsPayments); $i++) {
+            $id = $rowsPayments[$i]->id;
+            $oldCategory = $rowsPayments[$i]->categoria;
+            $arrNewCategory = array_filter($categories, function ($item) use ($oldCategory) {
+                return stripos($item, $oldCategory) !== false;
+            });
+            $newCategory = array_values($arrNewCategory)[0];
+            $newPrice = $pricesInventionPatentPG[array_keys($arrNewCategory)[0]] ?? $pricesInventionPatentPG[count($pricesInventionPatentPG) - 1];
+
+            if(stripos($oldCategory, 'ANUIDADE') === false || !isset($newCategory)) {
+                continue;
+            }
+
+            $this->updatePaymentForPatentGrant($id, $newCategory, $newPrice);
+        }
+    }
+
+    /**
+     * This method generates the payment for the Industrial Design.
+     * 
+     * @param       array       $formData       The form data to generate the payment.
+     * 
+     * @return      void
+     */
+    private function generateIndustrialDesign($formData)
+    {
+        $alreadyGenerated = $this->findPayment($formData['id'], 'DI-2ª PER.QUINQUENIO ');
+
+        if($alreadyGenerated) {
+            return;
+        }
+
+        $subValues = $this->getValuesForCategorys();
+        $categories = array_values($this->searchCategorys($subValues, 'QUINQUENIO'));
+        $depositDate = $formData[$this->getNameElementForQuery('pg_element_start')][0];
+        $pricesIndustrialDesign = $this->validatePrices('pg_prices_industrial_design');
+
+        if(!$this->validateDate($depositDate)) {
+            return;
+        }
+
+        // Insert the annuity payments
+        $indexStart = 4;
+        foreach ($categories as $key => $category) {
+            $indexEnd = $indexStart + 1;
+            $start = $this->calculationDate("+$indexStart year", $depositDate);
+            $endO = $this->calculationDate("+$indexEnd years", $depositDate);
+            $endE = $this->calculationDate("+$indexEnd years +6 months", $depositDate);
+            $alert = $this->calculationDate("+$indexStart years +6 months", $depositDate);
+
+            $price = $pricesIndustrialDesign[$key] ?? $pricesIndustrialDesign[count($pricesIndustrialDesign) - 1];
+
+            $data = Array(
+                $category,                              // Category
+                $start,                                 // Start date
+                $endO,                                  // Ordinary end date
+                $endE,                                  // Extraordinary end date
+                $price,                                 // Price
+                $this->defaultSituationForPayments,     // Situation
+                $alert                                  // Alert date
+            );
+            $this->insertPayment($data);
+
+            $indexStart += 5;
+        }
+    }
+
+    /**
+     * This method generates the payment for the Trademark.
+     * 
+     * @param       array       $formData       The form data to generate the payment.
+     * 
+     * @return      void
+     */
+    private function generateTrademarkP($formData)
+    {
+        $idRowConcessionTax = $this->findPayment($formData['id'], 'M-TAXA DE CONCESSAO');
+
+        if(!$idRowConcessionTax) {
+            return;
+        }
+
+        $subValues = $this->getValuesForCategorys();
+        $concessionDate = $this->getDateByIdPayment($idRowConcessionTax);
+        $pricesInventionPatentP = $this->validatePrices('pg_prices_trademark');
+
+        if(!$this->validateDate($concessionDate)) {
+            return;
+        }
+
+        // Delete the previous payment for the concession
+        $this->deleteRowPayment($idRowConcessionTax);
+
+        // Insert the data about the concession payment 
+        $data = Array(
+            'M-TAXA DE CONCESSAO',                                      // Category
+            $concessionDate,                                            // Start date
+            $this->calculationDate('+60 days', $concessionDate),        // Ordinary end date
+            $this->calculationDate('+150 days', $concessionDate),       // Extraordinary end date
+            $pricesInventionPatentP[0],                                 // Price
+            $this->defaultSituationForPayments,                         // Situation
+            $this->calculationDate('+30 days', $concessionDate)         // Alert date
+        );
+        $this->insertPayment($data);
+    }
+
+    /**
+     * This method generates the payment for the Trademark when it is changed to Patent Grant.
+     * 
+     * @param       array       $formData       The form data to generate the payment.
+     * 
+     * @return      void
+     */
+    private function generateTrademarkPG($formData)
+    {
+        $alreadyGenerated = $this->findPayment($formData['id'], 'M-1ª PRORROGACAO');
+        $startDate = $formData['data_situacao'];
+
+        if($alreadyGenerated) {
+            return;
+        }
+
+        if(!$startDate) {
+            //Factory::getApplication()->enqueueMessage(Text::_('PLG_FORM_PAYMENTGENERATOR_MESSAGE_DATE_MISSING_FOR_TRADEMARK_PG'));
+            return;
+        }
+
+        if(!$this->validateDate($startDate)) {
+            return;
+        }
+
+        $subValues = $this->getValuesForCategorys();
+        $categories = $this->searchCategorys($subValues, 'PRORROGACAO');
+
+        $pricesInventionPatentP = $this->validatePrices('pg_prices_trademark');
+        array_shift($pricesInventionPatentP); // Remove the first element, which is not a price for the annuity
+
+        // Insert the annuity payments
+        $indexStart = 9;
+        foreach ($categories as $key => $category) {
+            $indexEnd = $indexStart + 1;
+            $start = $this->calculationDate("+$indexStart year", $startDate);
+            $endO = $this->calculationDate("+$indexEnd year", $startDate);
+            $endE = $this->calculationDate("+$indexEnd year +6 months", $startDate);
+            $alert = $this->calculationDate("+$indexStart year +9 months", $startDate);
+
+            $price = $pricesInventionPatentP[$key] ?? $pricesInventionPatentP[count($pricesInventionPatentP) - 1];
+
+            $data = Array(
+                $category,                              // Category
+                $start,                                 // Start date
+                $endO,                                  // Ordinary end date
+                $endE,                                  // Extraordinary end date
+                $price,                                 // Price
+                $this->defaultSituationForPayments,     // Situation
+                $alert                                  // Alert date
+            );
+            $this->insertPayment($data);
+
+            $indexStart += 10;
+        }
+    }
+
+    /**
+     * This method generates the payment for Plant Variety Protection.
+     * 
+     * @param       array       $formData       The form data to generate the payment.
+     * 
+     * @return      void
+     */
+    private function generatePlantVarietyProtection($formData)
+    {
+        $db = Factory::getContainer()->get('DatabaseDriver');
+
+        $alreadyGenerated = $this->findPayment($formData['id'], 'C-1º MANUTENCAO');
+
+        if($alreadyGenerated) {
+            return;
+        }
+
+        $subValues = $this->getValuesForCategorys();
+        $categories = array_values($this->searchCategorys($subValues, 'MANUTENCAO'));
+        $idCertificatePayment = $this->findPayment($formData['id'], 'C-CERTIFICADO');
+        $certificateDate = $this->getDateByIdPayment($idCertificatePayment);
+        $pricesPlantVarietyProtection = $this->validatePrices('pg_prices_plant_variety_protection');
+
+        if(!$idCertificatePayment) {
+            Factory::getApplication()->enqueueMessage(Text::_('PLG_FORM_PAYMENTGENERATOR_MESSAGE_DATE_MISSING_FOR_PLANT_VARIETY_PROTECTION'));
+            return;
+        }
+
+        if(!$this->validateDate($certificateDate) && $idCertificatePayment) {
+            return;
+        }
+
+        // Insert the annuity payments
+        $indexStart = 0;
+        foreach ($categories as $key => $category) {
+            $indexEnd = $indexStart + 1;
+            $start = $this->calculationDate("+$indexStart year +6 months", $certificateDate);
+            $endO = $this->calculationDate("+$indexEnd years", $certificateDate);
+            $alert = $this->calculationDate("+$indexStart years +10 months", $certificateDate);
+
+            $price = $pricesPlantVarietyProtection[$key] ?? $pricesPlantVarietyProtection[count($pricesPlantVarietyProtection) - 1];
+
+            $data = Array(
+                $category,                              // Category
+                $start,                                 // Start date
+                $endO,                                  // Ordinary end date
+                $db->getNullDate(),                     // Extraordinary end date
+                $price,                                 // Price
+                $this->defaultSituationForPayments,     // Situation
+                $alert                                  // Alert date
+            );
+            $this->insertPayment($data);
+
+            $indexStart++;
+        }
+    }
+
+    /**
+     * This method searches for a payment in the database by its parent ID and category.
+     * 
+     * @param       int         $parentId       The ID of the parent record.
+     * @param       string      $category       The category of the payment to search for.
+     * 
+     * @return      int
+     */
+    private function findPayment($parentId, $category)
+    {
+        $db = Factory::getContainer()->get('DatabaseDriver');
+
+        $query = $db->getQuery(true)
+            ->select($db->qn('id'))
+            ->from($db->qn($this->table))
+            ->where($db->qn('parent_id') . ' = ' . $db->q((int) $parentId))
+            ->where($db->qn('categoria') . ' = ' . $db->q($category));
+        $db->setQuery($query);
+
+        return (int) $db->loadResult();
+    }
+
+    /**
+     * This method searches in the database for the date by the payment id
+     * 
+     * @param       int         $id               
+     * 
+     * @return      string
+     */
+    private function getDateByIdPayment($id)
+    {
+        $db = Factory::getContainer()->get('DatabaseDriver');
+
+        $query = $db->getQuery(true)
+            ->select($db->qn($this->getNameElementForQuery('pg_element_start')))
+            ->from($db->qn($this->table))
+            ->where($db->qn('id') . ' = ' . $db->q($id));
+        $db->setQuery($query);
+
+        return $db->loadResult();
+    }
+
+    /**
+     * This method delete the payment row from the database.
+     * 
+     * @param       int         $rowId      The ID of the row to delete.
+     * 
+     * @return      void
+     */
+    private function deleteRowPayment($rowId)
+    {
+        $db = Factory::getContainer()->get('DatabaseDriver');
+
+        $query = $db->getQuery(true)
+            ->delete($db->qn($this->table))
+            ->where($db->qn('id') . ' = ' . (int) $rowId);
+        $db->setQuery($query);
+        $db->execute();
+    }
+
+    /**
+     * This method get the subValues for the category element considering the current form.
+     * 
+     * @return      array
+     */
+    private function getValuesForCategorys()
+    {
+        $params = $this->getParams();
+        $formModel = $this->getModel();
+        $listModel = $formModel->getListModel();
+        $elements = $listModel->getElements('id');
+
+        // Get the category element to get its options
+        $categoryElementId = $params->get('pg_element_categories');
+        $categoryElement  = $elements[$categoryElementId];
+        $subValues = $categoryElement->getOptionValues();
+
+        return $subValues;
+    }
+
+    /**
+     * This method searches for categories in the subValues array for invention patents not including the ' CP' suffix.
+     * 
+     */
+    private function getCategoriesForPatentNotGranted($subValues)
+    {
+        $categories = $this->searchCategorys($subValues, 'ANUIDADE');
+        $categories = array_filter($categories, function($value) {
+            return stripos($value, ' CP') === false;
+        });
+
+        return $categories;
+    }
+    /**
+     * This method verify the last payment, and return the next payment index.
+     * 
+     */
+    private function checkIndexNextPayment($formData)
+    {
+        $params    = $this->getParams();
+        $formModel = $this->getModel();
+        $listModel = $formModel->getListModel();
+        $elements = $listModel->getElements('id');
+
+        // Get the situation element to check the last situation paied
+        $situationElementId = $params->get('pg_element_situation');
+        $situationElement  = $elements[$situationElementId];
+        $nameSituationElement = $situationElement->element->name;
+
+        $indexLastPaied = -1;
+        foreach ($formData[$nameSituationElement] as $key => $item) {
+            if(isset($item[0]) && $item[0] == 'Pago') {
+                $indexLastPaied = $key;
+            }
+
+            // Break if the current situation is default and the previous one is 'Pago'
+            if($formData[$nameSituationElement][$key-1][0] == 'Pago' && $formData[$nameSituationElement][$key][0] == $this->defaultSituationForPayments) {
+                break;
+            }
+        }
+
+        return $indexLastPaied+1;
+    }
+    /**
+     * This method checks if the PI is capable to be changed to Patent Grant
+     * 
+     * Conditions to be true:
+     * 1. The situation must be 'Concedido_Registrado'
+     * 3. The form data must have the necessary fields to generate payments
+     * 
+     * @param       string      $situation      The current situation of the PI.
+     * @param       array       $formData       The current form data.
+     * @param       array       $origFormData   The original form data before the changes.
+     * 
+     * @return      bool
+     */
+    private function checkPatentGrant($situation, $formData, $origFormData)
+    {
+        $formModel = $this->getModel();
+        $situationName = $formModel->getTableName() . '___situacao_pi';
+
+        $isGranted = $situation === 'Concedido_Registrado';
+        $alreadyGranted = false;
+
+        $categories = $formData[$this->getNameElementForQuery('pg_element_categories')];
+        foreach ($categories as $item) {
+            if (isset($item[0]) && stripos($item[0], ' CP') !== false) {
+                $alreadyGranted = true;
+                break;
+            }
+        }
+
+        return $isGranted && !$alreadyGranted && $this->checkToGenerate($formData);
+    }
+
+    /**
+     * This method checks if the form data has the necessary fields to generate payments.
+     * 
+     * Conditions to be true:
+     * 1. The first row of form data must have a category set
+     * 2. The first row of form data must have a date set
+     * 
+     * @param       array       $formData  The form data to check.
+     * 
+     * @return      bool
+     */
+    private function checkToGenerate($formData)
+    {
+        $category = $formData[$this->getNameElementForQuery('pg_element_categories')][0][0];
+        $hasCategory = isset($category);
+        $hasExpectedCategory = stripos($category, 'TAXA DE PEDIDO') !== false || stripos($category, 'TAXA DE DEPOSITO') !== false || stripos($category, 'TAXA DE DEPÓSITO') !== false;
+        $hasExpectedDate = isset($formData[$this->getNameElementForQuery('pg_element_start')][0]);
+
+        return $hasCategory && $hasExpectedCategory && $hasExpectedDate;
+    }
+
+    /**
+	 * This method says if the plugin must run or not
+	 * 
+	 * @return		bool
+	 */
+    private function mustRun()
+    {
+        $formModel = $this->getModel();
+        $formData = $formModel->formData;
+        $situation = is_array($formData['situacao_pi']) ? $formData['situacao_pi'][0] : $formData['situacao_pi'];
+        $piType = $formData['tipo'][0];
+
+        // If the form is new or the situation is not one of the expected ones, do not run
+        if($formModel->isNewRecord() || !in_array($situation, ['Pedido de Proteção Depositado', 'Concedido_Registrado', 'Sigilo INPI'])) {
+            return false;
+        }
+        
+        // For situation 'Concedido_Registrado', we must run only if the type is one of the expected ones
+        if ($situation == 'Concedido_Registrado' && !in_array($piType, ['Patente-de-Invencao', 'Modelo-de-utilidade', 'Marca', 'Protecao-Cultivar'])) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * This method calculates a new date by adding a period to a given date.
+     * 
+     * @param       string      $period          The period to add (e.g., '+1 year', '+6 months').
+     * @param       string      $dtCalculation   The date to which the period will be added (format: 'Y-m-d').
+     * 
+     * @return      string
+     */
     private function calculationDate($period, $dtCalculation)
     {
         return date('Y-m-d', strtotime($period, strtotime($dtCalculation)));
     }
 
+    /**
+     * This method validates the prices from the plugin parameters.
+     * 
+     * @param       string      $field          The field name to retrieve the prices from.
+     * 
+     * @return      array
+     */
+    private function validatePrices($field) 
+    {
+        $prices = array_map(function($item) {
+            return (float) trim($item);
+        }, explode(';', $this->pluginParams->get($field)));
+
+        return $prices;
+    }
+
+    /**
+     * This method sets the default situation for payments.
+     * 
+     */
+    private function setDefaultSituationForPayments()
+    {
+        $params    = $this->getParams();
+        $formModel = $this->getModel();
+        $listModel = $formModel->getListModel();
+        $elements = $listModel->getElements('id');
+
+        $situationElementId = $params->get('pg_element_situation');
+        $situationElement  = $elements[$situationElementId];
+        $this->defaultSituationForPayments = $situationElement->getDefaultValue()[0] ?? 'A Pagar';
+    }
+
+    /**
+     * This method counts the number of payments for a given parent ID.
+     * 
+     * @param       int         $parent_id      The parent ID to filter the query.
+     * 
+     * @return      int
+     */
+    private function countQtnPayments($parent_id) 
+    {
+        $db = Factory::getContainer()->get('DatabaseDriver');
+
+        $query = $db->getQuery(true);
+        $query->select('COUNT(id)')
+            ->from($db->qn($this->table))
+            ->where($db->qn('parent_id') . ' = ' . $db->q((int) $parent_id));
+        $db->setQuery($query);
+
+        return $db->loadResult();
+    }
+
+    /**
+     * This method get the payments rows for a specific parent ID.
+     * 
+     * @param       int         $parent_id      The parent ID to filter the query.
+     * 
+     * @return      object
+     */
+    private function getRowsPayments($parent_id)
+    {
+        $db = Factory::getContainer()->get('DatabaseDriver');
+
+        $query = $db->getQuery(true);
+        $query->select($db->qn(['id', $this->getNameElementForQuery('pg_element_categories')]))
+            ->from($db->qn($this->table))
+            ->where($db->qn('parent_id') . ' = ' . $db->q((int) $parent_id));
+        $db->setQuery($query);
+
+        return $db->loadObjectList();
+    }
+
+    /**
+     * This method sets the plugin parameters from the plugin configuration.
+     * 
+     * @return      void
+     */
+    private function setPluginParams()
+    {
+		$plugin  = PluginHelper::getPlugin('fabrik_form', 'paymentgenerator');
+		$this->pluginParams = new Registry($plugin->params);
+    }
+
+    /**
+     * This method sets the columns for the query based on table.
+     * 
+     * @return      void
+     */
+    private function setColumnsForQuery()
+    {
+        $this->columns = Array(
+            'parent_id',
+            $this->getNameElementForQuery('pg_element_categories'),
+            $this->getNameElementForQuery('pg_element_start'),
+            $this->getNameElementForQuery('pg_element_end_o'),
+            $this->getNameElementForQuery('pg_element_end_e'),
+            $this->getNameElementForQuery('pg_element_price'),
+            $this->getNameElementForQuery('pg_element_situation'),
+            $this->getNameElementForQuery('pg_element_alert')
+        );
+    }
+
+    /**
+     * This method retrieves the name of an element for a given parameter name.
+     * 
+     * @param       string      $paramName      The parameter name to retrieve the element name for.
+     * 
+     * @return      string
+     */
+    private function getNameElementForQuery($paramName)
+    {
+        $params = $this->getParams();
+        $formModel = $this->getModel();
+        $listModel = $formModel->getListModel();
+        $elements = $listModel->getElements('id');
+
+        $elementId = $params->get($paramName);
+        $element = $elements[$elementId];
+
+        return $element->element->name;
+    }
+
+    /**
+     * This method sets the table for the query based on the join model of the form.
+     * 
+     */
+    private function setTableForQuery()
+    {
+		$joinModel = Factory::getApplication()->bootComponent('com_fabrik')->getMVCFactory()->createModel('Join', 'FabrikFEModel');
+
+        $formModel = $this->getModel();
+        $params = $this->getParams();
+        $group = $params->get('pg_group');
+
+        $joinModel->setId($formModel->getPublishedGroups()[$group]->join_id);
+        $this->table = $joinModel->getJoin()->table_join;
+    }
+
+    /**
+     * This method searches for categories in a given array of sub-values that match a specified prefix.
+     * 
+     * @param       array       $subValues      The array of sub-values to search through.
+     * @param       string      $prefix         The prefix to match against the sub-values.
+     * 
+     * @return      array
+     */
     private function searchCategorys($subValues, $prefix)
     {
         $this->prefix = $prefix;
@@ -195,39 +894,86 @@ class PlgFabrik_FormPaymentgenerator extends PlgFabrik_Form {
             return stristr($v, $this->prefix);
         }, ARRAY_FILTER_USE_BOTH);
     }
+    
+    /**
+     * This method inserts data into a specific table with the given columns and data.
+     * 
+     * @param       array       $data           The data to be inserted into the table.
+     * 
+     * @return      void
+     */
+    private function insertPayment($data)
+    {
+        $db = Factory::getContainer()->get('DatabaseDriver');
 
-    private function selectQuantityRepeats($table, $parent_id, $field) {
-        $db     = JFactory::getDbo();
-        $query  = $db->getQuery(true);
-        
-        $query
-            ->select('COUNT(id) AS total')
-            ->from($table)
-            ->where($field . ' = ' . (int) $parent_id);
+        $formModel = $this->getModel();
+        $formData = $formModel->formData;
+        $idPi = $formData['id'];
 
-        $db->setQuery($query);
-
-        return $db->loadObject();
-    }
-
-    private function insertData($table, $columns, $data) {
-        $db = JFactory::getDbo();
+        array_unshift($data, $idPi);
 
         try {
             $db->transactionStart();
-            
+
             $query = $db->getQuery(true);
-            $query
-                ->insert($table)
-                ->columns($columns)
-                ->values(implode(',', $db->quote($data)));
-            
+            $query->insert($db->qn($this->table))
+                ->columns($db->qn($this->columns))
+                ->values(implode(',', $db->q($data)));
+
             $db->setQuery($query);
             $db->execute();
             $db->transactionCommit();
-        } catch (Exception $exc) {
+        } catch (Exception $e) {
             $db->transactionRollback();
-            JFactory::getApplication()->enqueueMessage(JText::_('PLG_FORM_PAYMENTGENERATOR_MESSAGE_3') . " - " . $exc->getMessage());
+            Factory::getApplication()->enqueueMessage(Text::_('PLG_FORM_PAYMENTGENERATOR_MESSAGE_ERROR_DATABASE') . " - " . $e->getMessage());
         }
+    }
+
+    /**
+     * This method updates rows for the Patent Grant payments.
+     * 
+     */
+    private function updatePaymentForPatentGrant($id, $newCategory, $newValue)
+    {
+        $db = Factory::getContainer()->get('DatabaseDriver');
+
+        try {
+            $db->transactionStart();
+
+            $query = $db->getQuery(true);
+            $query->update($db->qn($this->table))
+                ->set($db->qn($this->getNameElementForQuery('pg_element_categories')) . ' = ' . $db->q($newCategory))
+                ->set($db->qn($this->getNameElementForQuery('pg_element_price')) . ' = ' . $db->q($newValue))
+                ->where($db->qn('id') . ' = ' . (int) $id);
+            $db->setQuery($query);
+
+            $db->execute();
+            $db->transactionCommit();
+        } catch (Exception $e) {
+            $db->transactionRollback();
+            Factory::getApplication()->enqueueMessage(Text::_('PLG_FORM_PAYMENTGENERATOR_MESSAGE_ERROR_DATABASE_UPDATE') . " - " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Validate Date.
+     *
+     * @param       string      $date       Date to validate.
+     *
+     * @return      bool
+     */
+    private function validateDate($date)
+    {
+        $db = Factory::getContainer()->get('DatabaseDriver');
+
+        try {
+            $format = $db->getDateFormat();
+            $valid  = Date::createFromFormat($format, $date);
+        } catch (Exception $e) {
+            Factory::getApplication()->enqueueMessage(Text::_('PLG_FORM_PAYMENTGENERATOR_MESSAGE_INVALID_DATE_TO_GENERATE'));
+            return false;
+        }
+
+        return $valid;
     }
 }

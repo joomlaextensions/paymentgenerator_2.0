@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <extension group="fabrik_form" method="upgrade" type="plugin" version="3">
-    <name>plg_fabrik_form_paymentgenerator</name>
-    <author>Ana Luiza</author>
+    <name>PLG_FABRIK_FORM_PAYMENTGENERATOR</name>
+    <author>Jlowcode Organization</author>
     <creationDate>December 2020</creationDate>
     <copyright>Copyright (C) 2024 Jlowcode Org - All rights reserved.</copyright>
 	<license>GNU/GPL http://www.gnu.org/copyleft/gpl.html</license>
 	<authorEmail>contact@jlowcode.org</authorEmail>
 	<authorUrl>www.jlowcode.org</authorUrl>
-    <version>4.0</version>
+    <version>5.0</version>
     <help url="PLG_FORM_PAYMENTGENERATOR_HELP_SERVER"/>
     <description>PLG_FORM_PAYMENTGENERATOR_DESCRIPTION</description>
     <files>
@@ -16,4 +16,65 @@
         <folder>forms</folder>
         <folder>language</folder>
     </files>
+    <config>
+        <fields name="params">
+            <fieldset name="basic">
+                <field
+                    name="pg_prices_invention_patent_p"
+                    type="text"
+                    label="PLG_FORM_PAYMENTGENERATOR_PRICES_INVENTION_PATENT_P_LABEL"
+                    description="PLG_FORM_PAYMENTGENERATOR_PRICES_INVENTION_PATENT_P_DESC"
+                    hint="PLG_FORM_PAYMENTGENERATOR_PRICES_HINT"
+                />
+
+                <field
+                    name="pg_prices_invention_patent_pg"
+                    type="text"
+                    label="PLG_FORM_PAYMENTGENERATOR_PRICES_INVENTION_PATENT_PG_LABEL"
+                    description="PLG_FORM_PAYMENTGENERATOR_PRICES_INVENTION_PATENT_PG_DESC"
+                    hint="PLG_FORM_PAYMENTGENERATOR_PRICES_HINT"
+                />
+
+                <field
+                    name="pg_prices_utility_model_p"
+                    type="text"
+                    label="PLG_FORM_PAYMENTGENERATOR_PRICES_UTILITY_MODEL_P_LABEL"
+                    description="PLG_FORM_PAYMENTGENERATOR_PRICES_UTILITY_MODEL_P_DESC"
+                    hint="PLG_FORM_PAYMENTGENERATOR_PRICES_HINT"
+                />
+
+                <field
+                    name="pg_prices_utility_model_pg"
+                    type="text"
+                    label="PLG_FORM_PAYMENTGENERATOR_PRICES_UTILITY_MODEL_PG_LABEL"
+                    description="PLG_FORM_PAYMENTGENERATOR_PRICES_UTILITY_MODEL_PG_DESC"
+                    hint="PLG_FORM_PAYMENTGENERATOR_PRICES_HINT"
+                />
+
+                <field
+                    name="pg_prices_trademark"
+                    type="text"
+                    label="PLG_FORM_PAYMENTGENERATOR_PRICES_TRADEMARK_LABEL"
+                    description="PLG_FORM_PAYMENTGENERATOR_PRICES_TRADEMARK_DESC"
+                    hint="PLG_FORM_PAYMENTGENERATOR_PRICES_HINT"
+                />
+
+                <field
+                    name="pg_prices_industrial_design"
+                    type="text"
+                    label="PLG_FORM_PAYMENTGENERATOR_INDUSTRIAL_DESIGN_LABEL"
+                    description="PLG_FORM_PAYMENTGENERATOR_INDUSTRIAL_DESIGN_DESC"
+                    hint="PLG_FORM_PAYMENTGENERATOR_PRICES_HINT"
+                />
+
+                <field
+                    name="pg_prices_plant_variety_protection"
+                    type="text"
+                    label="PLG_FORM_PAYMENTGENERATOR_PLANT_VARIETY_PROTECTION_LABEL"
+                    description="PLG_FORM_PAYMENTGENERATOR_PLANT_VARIETY_PROTECTION_DESC"
+                    hint="PLG_FORM_PAYMENTGENERATOR_PRICES_HINT"
+                />
+            </fieldset>
+		</fields>
+    </config>
 </extension>

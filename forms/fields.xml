@@ -2,110 +2,62 @@
 <form>
     <fields addfieldpath="/administrator/components/com_fabrik/models/fields" name="params">
         <fieldset name="plg-form-paymentgenerator">
+			<field name="pg_group"
+				required="true"
+				label="PLG_FORM_PAYMENTGENERATOR_GROUP_LABEL"
+				description="PLG_FORM_PAYMENTGENERATOR_GROUP_DESC"
+				type="grouplist"
+			/>
 
-            <field name="paymentgenerator_group" 
-                   required="true"
-                   label="PLG_FORM_PAYMENTGENERATOR_DESTINATION_LABEL"
-                   description="PLG_FORM_PAYMENTGENERATOR_DESTINATION_DESC"
-                   type="grouplist"
-            />
-            
-            <field name="paymentgenerator_field" 
-                   required="true"
-                   label="PLG_FORM_PAYMENTGENERATOR_FIELDS_LABEL"
-                   description="PLG_FORM_PAYMENTGENERATOR_FIELDS_DESC"
-                   onlytablefields="0"
-                   type="listfields"
-            />
-            
-            <field name="paymentgenerator_situation" 
-                   required="true"
-                   label="PLG_FORM_PAYMENTGENERATOR_SITUATION_LABEL"
-                   description="PLG_FORM_PAYMENTGENERATOR_SITUATION_DESC"
-                   onlytablefields="0" 
-                   type="text"
-            />
+			<field name="pg_element_categories"
+				required="true"
+				label="PLG_FORM_PAYMENTGENERATOR_ELEMENT_CATEGORIES_LABEL"
+				description="PLG_FORM_PAYMENTGENERATOR_ELEMENT_CATEGORIES_DESC"
+				onlytablefields="0"
+				type="listfields"
+			/>
 
-            <field name="paymentgenerator_category_patente" 
-                   required="true"
-                   label="PLG_FORM_PAYMENTGENERATOR_CATEGORY_PATENTE_LABEL"
-                   description="PLG_FORM_PAYMENTGENERATOR_CATEGORY_PATENTE_DESC"
-                   onlytablefields="0" 
-                   type="text"
-            />
+			<field name="pg_element_start" 
+				label="PLG_FORM_PAYMENTGENERATOR_ELEMENT_START_LABEL"
+				description="PLG_FORM_PAYMENTGENERATOR_ELEMENT_START_DESC"
+				onlytablefields="0"
+				type="listfields"
+			/>
 
-            <field name="paymentgenerator_value_patente" 
-                   required="true"
-                   label="PLG_FORM_PAYMENTGENERATOR_VALUE_PATENTE_LABEL"
-                   description="PLG_FORM_PAYMENTGENERATOR_VALUE_PATENTE_DESC"
-                   onlytablefields="0" 
-                   type="text"
-            />
-            
-            <field name="paymentgenerator_category_marca" 
-                   required="true"
-                   label="PLG_FORM_PAYMENTGENERATOR_CATEGORY_MARCA_LABEL"
-                   description="PLG_FORM_PAYMENTGENERATOR_CATEGORY_MARCA_DESC"
-                   onlytablefields="0" 
-                   type="text"
-            />
-            
-            <field name="paymentgenerator_value_marca" 
-                   required="true"
-                   label="PLG_FORM_PAYMENTGENERATOR_VALUE_MARCA_LABEL"
-                   description="PLG_FORM_PAYMENTGENERATOR_VALUE_MARCA_DESC"
-                   onlytablefields="0" 
-                   type="text"
-            />
-            
-            <field name="paymentgenerator_category_industrial" 
-                   required="true"
-                   label="PLG_FORM_PAYMENTGENERATOR_CATEGORY_INDUSTRIAL_LABEL"
-                   description="PLG_FORM_PAYMENTGENERATOR_CATEGORY_INDUSTRIAL_DESC"
-                   onlytablefields="0" 
-                   type="text"
-            />
-            
-            <field name="paymentgenerator_value_industrial" 
-                   required="true"
-                   label="PLG_FORM_PAYMENTGENERATOR_VALUE_INDUSTRIAL_LABEL"
-                   description="PLG_FORM_PAYMENTGENERATOR_VALUE_INDUSTRIAL_DESC"
-                   onlytablefields="0" 
-                   type="text"
-            />
-            
-            <field name="paymentgenerator_inicio" 
-                   required="true"
-                   label="PLG_FORM_PAYMENTGENERATOR_INICIO_LABEL"
-                   description="PLG_FORM_PAYMENTGENERATOR_INICIO_DESC"
-                   onlytablefields="0" 
-                   type="listfields"
-            />
-            
-            <field name="paymentgenerator_fim_o" 
-                   required="true"
-                   label="PLG_FORM_PAYMENTGENERATOR_FIM_O_LABEL"
-                   description="PLG_FORM_PAYMENTGENERATOR_FIM_O_DESC"
-                   onlytablefields="0" 
-                   type="listfields"
-            />
-            
-            <field name="paymentgenerator_fim_e" 
-                   required="true"
-                   label="PLG_FORM_PAYMENTGENERATOR_FIM_E_LABEL"
-                   description="PLG_FORM_PAYMENTGENERATOR_FIM_E_DESC"
-                   onlytablefields="0" 
-                   type="listfields"
-            />
-            
-            <field name="paymentgenerator_dt_alerta" 
-                   required="true"
-                   label="PLG_FORM_PAYMENTGENERATOR_DT_ALERTA_LABEL"
-                   description="PLG_FORM_PAYMENTGENERATOR_DT_ALERTA_DESC"
-                   onlytablefields="0" 
-                   type="listfields"
-            />
+			<field name="pg_element_end_o"
+				label="PLG_FORM_PAYMENTGENERATOR_ELEMENT_END_O_LABEL"
+				description="PLG_FORM_PAYMENTGENERATOR_ELEMENT_END_O_DESC"
+				onlytablefields="0" 
+				type="listfields"
+			/>
 
+			<field name="pg_element_end_e"
+				label="PLG_FORM_PAYMENTGENERATOR_ELEMENT_END_E_LABEL"
+				description="PLG_FORM_PAYMENTGENERATOR_ELEMENT_END_E_DESC"
+				onlytablefields="0"
+				type="listfields"
+			/>
+
+			<field name="pg_element_price"
+				label="PLG_FORM_PAYMENTGENERATOR_ELEMENT_PRICE_LABEL"
+				description="PLG_FORM_PAYMENTGENERATOR_ELEMENT_PRICE_DESC"
+				onlytablefields="0"
+				type="listfields"
+			/>
+
+			<field name="pg_element_situation"
+				label="PLG_FORM_PAYMENTGENERATOR_ELEMENT_SITUATION_LABEL"
+				description="PLG_FORM_PAYMENTGENERATOR_ELEMENT_SITUATION_DESC"
+				onlytablefields="0"
+				type="listfields"
+			/>
+
+			<field name="pg_element_alert" 
+				label="PLG_FORM_PAYMENTGENERATOR_ELEMENT_ALERT_LABEL"
+				description="PLG_FORM_PAYMENTGENERATOR_ELEMENT_ALERT_DESC"
+				onlytablefields="0" 
+				type="listfields"
+			/>
         </fieldset>
     </fields>
 </form>
